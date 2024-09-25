@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  # Run all tests.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install submodules
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          forge install
+
+      - name: Run forge tests and create gas report.
+        run: |
+          set -e
+          forge build
+          forge test | tee output.txt
+          test ${PIPESTATUS[0]} -eq 0
+          sed -n -e '/^|/p' output.txt > gas.txt
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          FORGE_GAS_REPORT: true
+          FOUNDRY_PROFILE: ${{ github.event_name == 'push' && 'ci' || '' }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: gas-report
+          path: gas.txt
+
+  # Check contract sizes.
+  size:
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install submodules
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          forge install
+
+      - run:
+            chmod +x ./scripts/size.sh
+            scripts/size.sh
+        env:
+          FOUNDRY_PROFILE: ci
+
+  # Check and generate code coverage report.
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install submodules
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          forge install
+
+      - name: Install lcov
+        run: sudo apt-get install lcov
+
+      - name: Generate code coverage report
+        run: |
+          forge coverage --report lcov
+          lcov --remove ./lcov.info 'tests/*' -o ./lcov.info.pruned --rc branch_coverage=1
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          FOUNDRY_PROFILE: ${{ github.event_name == 'push' && 'ci' || '' }}
+
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@v4
+        with:
+          coverage-files: lcov.info.pruned
+          minimum-coverage: 100
+          artifact-name: code-coverage-report
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: ./
+          update-comment: true
+
+  # Post gas report.
+  gas:
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: gas-report
+          path: gas.txt
+
+      - uses: mshick/add-pr-comment@v2
+        with:
+          message-path: gas.txt
+          preformatted: true
