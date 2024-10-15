@@ -4,8 +4,7 @@ pragma solidity ^0.8.0;
 import { MapleBasicStrategy as MapleStrategy } from "../../contracts/MapleBasicStrategy.sol";
 import { MapleStrategyFactory }                from "../../contracts/proxy/MapleStrategyFactory.sol";
 
-import { TestBase }             from "../utils/TestBase.sol";
-import { MapleStrategyHarness } from "../utils/Harnesses.sol";
+import { TestBase } from "../utils/TestBase.sol";
 
 contract CreateInstanceTests is TestBase {
 
@@ -69,7 +68,7 @@ contract CreateInstanceTests is TestBase {
 
         MapleStrategy strategy_ = MapleStrategy(factory.createInstance(calldata_, "SALT"));
 
-        assertEq(MapleStrategyHarness(address(strategy_)).locked(), 1);
+        assertEq(strategy_.locked(), 1);
 
         assertEq(strategy_.pool(),        address(pool));
         assertEq(strategy_.poolManager(), pm);

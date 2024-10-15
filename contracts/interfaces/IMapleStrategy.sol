@@ -3,19 +3,12 @@ pragma solidity ^0.8.0;
 
 import { IMapleProxied } from "../../modules/maple-proxy-factory/contracts/interfaces/IMapleProxied.sol";
 
-import { IMapleStrategyStorage } from "./IMapleStrategyStorage.sol";
 
-interface IMapleStrategy is IMapleStrategyStorage, IMapleProxied {
+interface IMapleStrategy is IMapleProxied  {
 
     /**************************************************************************************************************************************/
     /*** View Functions                                                                                                                 ***/
     /**************************************************************************************************************************************/
-
-    /**
-     *  @dev   Returns the address of the underlying pool asset.
-     *  @param asset Address of the underlying pool asset.
-     */
-    function asset() external view returns (address asset);
 
     /**
      *  @dev   Returns the address of the globals contract.
@@ -28,6 +21,12 @@ interface IMapleStrategy is IMapleStrategyStorage, IMapleProxied {
      *  @param governor Address of the governor contract.
      */
     function governor() external view returns (address governor);
+
+    /**
+     *  @dev   Returns the address of the implementation.
+     *  @param implementation Address of the implementation.
+     */
+    function implementation() external view returns (address implementation);
 
     /**
      *  @dev   Returns the address of the pool delegate.

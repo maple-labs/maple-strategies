@@ -4,10 +4,11 @@ pragma solidity ^0.8.0;
 import { console2 as console, Test } from "../../modules/forge-std/src/Test.sol";
 import { MockERC20 }                 from "../../modules/erc20/contracts/test/mocks/MockERC20.sol";
 
-import { MapleStrategyFactory }     from "../../contracts/proxy/MapleStrategyFactory.sol";
-import { MapleStrategyInitializer } from "../../contracts/proxy/MapleStrategyInitializer.sol";
+import { MapleStrategyFactory }          from "../../contracts/proxy/MapleStrategyFactory.sol";
+import { MapleBasicStrategyInitializer } from "../../contracts/proxy/basicStrategy/MapleBasicStrategyInitializer.sol";
 
-import { MapleStrategyHarness }                                from "./Harnesses.sol";
+import { MapleBasicStrategy } from "../../contracts/MapleBasicStrategy.sol";
+
 import { MockFactory, MockGlobals, MockPool, MockPoolManager } from "./Mocks.sol";
 
 contract TestBase is Test {
@@ -29,7 +30,7 @@ contract TestBase is Test {
     MockPoolManager internal poolManager;
 
     MapleStrategyFactory internal factory;
-    MapleStrategyHarness internal strategy;
+    MapleBasicStrategy   internal strategy;
 
     function setUp() public virtual {
         // Create all mocks.
@@ -50,8 +51,8 @@ contract TestBase is Test {
         globals.__setOperationalAdmin(operationalAdmin);
         globals.__setSecurityAdmin(securityAdmin);
 
-        implementation = address(new MapleStrategyHarness());
-        initializer    = address(new MapleStrategyInitializer());
+        implementation = address(new MapleBasicStrategy());
+        initializer    = address(new MapleBasicStrategyInitializer());
 
         vm.startPrank(governor);
         factory = new MapleStrategyFactory(address(globals));
@@ -60,7 +61,7 @@ contract TestBase is Test {
         vm.stopPrank();
 
         // Create the strategy manager instance.
-        strategy = MapleStrategyHarness(factory.createInstance({
+        strategy = MapleBasicStrategy(factory.createInstance({
             arguments_: abi.encode(address(pool)),
             salt_:      "SALT"
         }));

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-import { MapleProxiedInternals } from "../../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
+import { MapleProxiedInternals } from "../../../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
 
-import { IGlobalsLike, IMapleProxyFactoryLike, IPoolLike, IPoolManagerLike } from "../interfaces/Interfaces.sol";
-import { IMapleStrategyInitializer }                                         from "../interfaces/IMapleStrategyInitializer.sol";
+import { IMapleBasicStrategyInitializer } from "../../interfaces/basicStrategy/IMapleBasicStrategyInitializer.sol";
 
-import { MapleStrategyStorage } from "./MapleStrategyStorage.sol";
+import { IGlobalsLike, IMapleProxyFactoryLike, IPoolLike, IPoolManagerLike } from "../../interfaces/Interfaces.sol";
+
+import { MapleBasicStrategyStorage } from "./MapleBasicStrategyStorage.sol";
 
 // TODO: Note each strategy will need its own config, need to think of the best way to manage this. 
-contract MapleStrategyInitializer is IMapleStrategyInitializer, MapleStrategyStorage, MapleProxiedInternals {
+contract MapleBasicStrategyInitializer is IMapleBasicStrategyInitializer, MapleBasicStrategyStorage, MapleProxiedInternals {
 
     fallback() external {
         ( address pool_ ) = abi.decode(msg.data, (address));
@@ -27,7 +28,7 @@ contract MapleStrategyInitializer is IMapleStrategyInitializer, MapleStrategySto
         require(IGlobalsLike(globals_).isInstanceOf("POOL_MANAGER_FACTORY", factory_), "MSI:I:INVALID_PM_FACTORY");
         require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MSI:I:INVALID_PM");
 
-        _locked = 1;
+        locked = 1;
 
         pool        = pool_;
         poolManager = poolManager_;

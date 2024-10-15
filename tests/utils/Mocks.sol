@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import { MockERC20 } from "../../modules/erc20/contracts/test/mocks/MockERC20.sol";
 
-import { MapleStrategyStorage } from "../../contracts/proxy/MapleStrategyStorage.sol";
+import { MapleBasicStrategyStorage } from "../../contracts/proxy/basicStrategy/MapleBasicStrategyStorage.sol";
 
 contract MockFactory {
 
@@ -137,7 +137,7 @@ contract MockPoolManager {
 
 }
 
-contract MockStrategiesMigrator is MapleStrategyStorage {
+contract MockStrategiesMigrator is MapleBasicStrategyStorage {
 
     fallback() external {
         pool = abi.decode(msg.data, (address));

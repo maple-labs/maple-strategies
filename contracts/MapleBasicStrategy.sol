@@ -5,7 +5,7 @@ import { ERC20Helper }           from "../modules/erc20-helper/src/ERC20Helper.s
 import { IMapleProxyFactory }    from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxyFactory.sol";
 import { MapleProxiedInternals } from "../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
 
-import { IMapleStrategy } from "./interfaces/IMapleStrategy.sol";
+import { IMapleBasicStrategy } from "./interfaces/basicStrategy/IMapleBasicStrategy.sol";
 
 import {
     IERC20Like,
@@ -14,7 +14,9 @@ import {
     IPoolManagerLike
 } from "./interfaces/Interfaces.sol";
 
-import { MapleStrategyStorage } from "./proxy/MapleStrategyStorage.sol";
+import { MapleBasicStrategyStorage } from "./proxy/basicStrategy/MapleBasicStrategyStorage.sol";
+
+import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 /*
     ███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
@@ -33,56 +35,18 @@ import { MapleStrategyStorage } from "./proxy/MapleStrategyStorage.sol";
 
 */
 
-contract MapleBasicStrategy is IMapleStrategy, MapleStrategyStorage , MapleProxiedInternals {
+contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , MapleAbstractStrategy {
 
     /**************************************************************************************************************************************/
-    /*** Modifiers                                                                                                                      ***/
+    /*** Internal Functions                                                                                                              ***/
     /**************************************************************************************************************************************/
 
-    // TODO: Can we use transient storage?
-    modifier nonReentrant() {
-        require(_locked == 1, "MS:LOCKED");
-
-        _locked = 2;
-
-        _;
-
-        _locked = 1;
+    function _setLock(uint256 lock_) internal override {
+        locked = lock_;
     }
 
-    modifier whenProtocolNotPaused() {
-        require(!IGlobalsLike(globals()).isFunctionPaused(msg.sig), "MS:PAUSED");
-        _;
-    }
-
-    /**************************************************************************************************************************************/
-    /*** Proxy Functions                                                                                                                ***/
-    /**************************************************************************************************************************************/
-
-    function migrate(address migrator_, bytes calldata arguments_) external override whenProtocolNotPaused {
-        require(msg.sender == _factory(),        "MS:M:NOT_FACTORY");
-        require(_migrate(migrator_, arguments_), "MS:M:FAILED");
-    }
-
-    function setImplementation(address implementation_) external override whenProtocolNotPaused {
-        require(msg.sender == _factory(), "MS:SI:NOT_FACTORY");
-        _setImplementation(implementation_);
-    }
-
-    function upgrade(uint256 version_, bytes calldata arguments_) external override whenProtocolNotPaused {
-        address poolDelegate_ = poolDelegate();
-
-        require(msg.sender == poolDelegate_ || msg.sender == securityAdmin(), "MS:U:NOT_AUTHORIZED");
-
-        IGlobalsLike mapleGlobals_ = IGlobalsLike(globals());
-
-        if (msg.sender == poolDelegate_) {
-            require(mapleGlobals_.isValidScheduledCall(msg.sender, address(this), "MS:UPGRADE", msg.data), "MS:U:INVALID_SCHED_CALL");
-
-            mapleGlobals_.unscheduleCall(msg.sender, "MS:UPGRADE", msg.data);
-        }
-
-        IMapleProxyFactory(_factory()).upgradeInstance(version_, arguments_);
+    function _locked() internal view override returns (uint256) {
+        return locked;
     }
 
     /**************************************************************************************************************************************/
