@@ -3,8 +3,21 @@ pragma solidity ^0.8.0;
 
 interface IERC20Like {
 
+    function approve(address spender, uint256 amount) external returns (bool success);
+
     function balanceOf(address account_) external view returns (uint256 balance_);
 
+}
+
+interface IERC4626Like {
+
+    function asset() external view returns (address asset_);
+
+    function deposit(uint256 assets_, address receiver_) external returns (uint256 shares_);
+
+    function redeem(uint256 shares_, address receiver_, address owner_) external returns (uint256 assets_);
+
+    function convertToAssets(uint256 shares_) external view returns (uint256 assets_);
 }
 
 interface IGlobalsLike {
@@ -53,5 +66,7 @@ interface IPoolManagerLike {
     function factory() external view returns (address factory_);
 
     function poolDelegate() external view returns (address poolDelegate_);
+
+    function requestFunds(address destination_, uint256 principal_) external;
 
 }

@@ -9,7 +9,7 @@ import { MapleBasicStrategyInitializer } from "../../contracts/proxy/basicStrate
 
 import { MapleBasicStrategy } from "../../contracts/MapleBasicStrategy.sol";
 
-import { MockFactory, MockGlobals, MockPool, MockPoolManager } from "./Mocks.sol";
+import { MockFactory, MockGlobals, MockPool, MockPoolManager, MockVault } from "./Mocks.sol";
 
 contract TestBase is Test {
 
@@ -18,6 +18,7 @@ contract TestBase is Test {
     address internal operationalAdmin = makeAddr("operationalAdmin");
     address internal poolDelegate     = makeAddr("poolDelegate");
     address internal securityAdmin    = makeAddr("securityAdmin");
+    address internal strategyManager  = makeAddr("strategyManager");
 
     address internal implementation;
     address internal initializer;
@@ -28,6 +29,7 @@ contract TestBase is Test {
     MockFactory     internal poolManagerFactory;
     MockPool        internal pool;
     MockPoolManager internal poolManager;
+    MockVault       internal vault;
 
     MapleStrategyFactory internal factory;
     MapleBasicStrategy   internal strategy;
@@ -60,9 +62,11 @@ contract TestBase is Test {
         factory.setDefaultVersion(1);
         vm.stopPrank();
 
-        // Create the strategy manager instance.
+        vault = new MockVault(address(asset));
+
+        // Create the strategy instance.
         strategy = MapleBasicStrategy(factory.createInstance({
-            arguments_: abi.encode(address(pool)),
+            arguments_: abi.encode(address(pool), address(vault)),
             salt_:      "SALT"
         }));
 

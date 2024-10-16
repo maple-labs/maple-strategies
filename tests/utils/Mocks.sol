@@ -135,12 +135,48 @@ contract MockPoolManager {
         factory = factory_;
     }
 
+    function requestFunds(address destination_, uint256 principal_) external pure {}
+
 }
 
 contract MockStrategiesMigrator is MapleBasicStrategyStorage {
 
     fallback() external {
         pool = abi.decode(msg.data, (address));
+    }
+
+}
+
+contract MockVault {
+
+    address public asset;
+
+    uint256 public exchangeRate;
+
+    mapping (address => uint256) public balances;
+
+    constructor(address asset_) {
+        asset = asset_;
+    }
+
+    function deposit(uint256 amount_, address) external pure returns (uint256) {
+        return amount_;
+    }
+
+    function __setBalanceOf(address account_, uint256 amount_) external {
+        balances[account_] = amount_;
+    }
+
+    function __setExchangeRate(uint256 exchangeRate_) external {
+        exchangeRate = exchangeRate_;
+    }
+
+    function balanceOf(address account_) external view returns (uint256) {
+        return balances[account_];
+    }
+
+    function convertToAssets(uint256 shares_) external view returns (uint256 assets_) {
+        assets_ = shares_ * exchangeRate;
     }
 
 }

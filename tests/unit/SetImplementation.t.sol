@@ -5,7 +5,7 @@ import { MapleBasicStrategy as MapleStrategy } from "../../contracts/MapleBasicS
 
 import { TestBase } from "../utils/TestBase.sol";
 
-contract SetImplementationTests is TestBase {
+contract MapleBasicStrategySetImplementationTests is TestBase {
 
     address internal newImplementation;
 

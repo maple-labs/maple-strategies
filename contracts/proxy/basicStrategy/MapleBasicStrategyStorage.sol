@@ -11,7 +11,9 @@ contract MapleBasicStrategyStorage is IMapleBasicStrategyStorage {
 
     uint256 public locked;  // Used when checking for reentrancy.
 
+    address public override fundsAsset;
     address public override pool;
     address public override poolManager;
+    address public override strategyVault;
 
 }

@@ -5,35 +5,48 @@ import { MapleProxiedInternals } from "../../../modules/maple-proxy-factory/cont
 
 import { IMapleBasicStrategyInitializer } from "../../interfaces/basicStrategy/IMapleBasicStrategyInitializer.sol";
 
-import { IGlobalsLike, IMapleProxyFactoryLike, IPoolLike, IPoolManagerLike } from "../../interfaces/Interfaces.sol";
+import {
+    IERC4626Like,
+    IGlobalsLike,
+    IMapleProxyFactoryLike,
+    IPoolLike,
+    IPoolManagerLike
+} from "../../interfaces/Interfaces.sol";
 
 import { MapleBasicStrategyStorage } from "./MapleBasicStrategyStorage.sol";
 
-// TODO: Note each strategy will need its own config, need to think of the best way to manage this. 
 contract MapleBasicStrategyInitializer is IMapleBasicStrategyInitializer, MapleBasicStrategyStorage, MapleProxiedInternals {
 
     fallback() external {
-        ( address pool_ ) = abi.decode(msg.data, (address));
+        ( address pool_, address strategyVault_ ) = abi.decode(msg.data, (address, address));
 
-        _initialize(pool_);
+        _initialize(pool_, strategyVault_);
     }
 
-    function _initialize(address pool_) internal {
-        require(pool_ != address(0), "MSI:ZERO_POOL");
+    function _initialize(address pool_, address strategyVault_) internal {
+        require(pool_ != address(0), "MBSI:ZERO_POOL");
 
         address globals_     = IMapleProxyFactoryLike(msg.sender).mapleGlobals();
         address poolManager_ = IPoolLike(pool_).manager();
         address factory_     = IPoolManagerLike(poolManager_).factory();
 
-        require(IGlobalsLike(globals_).isInstanceOf("POOL_MANAGER_FACTORY", factory_), "MSI:I:INVALID_PM_FACTORY");
-        require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MSI:I:INVALID_PM");
+        require(IGlobalsLike(globals_).isInstanceOf("POOL_MANAGER_FACTORY", factory_), "MBSI:I:INVALID_PM_FACTORY");
+        require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MBSI:I:INVALID_PM");
+
+        address fundsAsset_         = IPoolLike(pool_).asset();
+        address strategyVaultAsset_ = IERC4626Like(strategyVault_).asset();
+
+        require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBSI:I:INVALID_STRATEGY_VAULT");
+        require(fundsAsset_ == strategyVaultAsset_,                                    "MBSI:I:INVALID_STRATEGY_ASSET");
 
         locked = 1;
 
-        pool        = pool_;
-        poolManager = poolManager_;
+        fundsAsset    = fundsAsset_;
+        pool          = pool_;
+        poolManager   = poolManager_;
+        strategyVault = strategyVault_;
 
-        emit Initialized(pool_, poolManager_);
+        emit Initialized(pool_, poolManager_, strategyVault_);
     }
 
 }

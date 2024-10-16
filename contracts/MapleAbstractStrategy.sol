@@ -6,7 +6,6 @@ import { IMapleProxyFactory }    from "../modules/maple-proxy-factory/contracts/
 import { IMapleProxied }         from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxied.sol";
 import { MapleProxiedInternals } from "../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
 
-
 import {
     IERC20Like,
     IGlobalsLike,
@@ -35,6 +34,7 @@ abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals 
         require(!IGlobalsLike(globals()).isFunctionPaused(msg.sig), "MS:PAUSED");
         _;
     }
+
     modifier onlyProtocolAdmins {
         require(
             msg.sender == poolDelegate() ||
@@ -86,7 +86,6 @@ abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals 
         IMapleProxyFactory(_factory()).upgradeInstance(version_, arguments_);
     }
 
-
     /**************************************************************************************************************************************/
     /*** Virtual Functions                                                                                                              ***/
     /**************************************************************************************************************************************/
@@ -102,7 +101,7 @@ abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals 
     function securityAdmin() public view virtual returns (address securityAdmin_);
 
     /**************************************************************************************************************************************/
-    /*** Internal Functions                                                                                                              ***/
+    /*** Internal Functions                                                                                                             ***/
     /**************************************************************************************************************************************/
 
     function _setLock(uint256 lock_) internal virtual;

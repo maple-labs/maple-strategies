@@ -6,7 +6,7 @@ import { MapleBasicStrategy as MapleStrategy } from "../../contracts/MapleBasicS
 import { MockGlobals, MockStrategiesMigrator } from "../utils/Mocks.sol";
 import { TestBase }                            from "../utils/TestBase.sol";
 
-contract UpgradeTests is TestBase {
+contract MapleBasicStrategyUpgradeTests is TestBase {
 
     address internal migrator;
     address internal newImplementation;

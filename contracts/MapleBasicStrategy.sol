@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.7;
 
-import { ERC20Helper }           from "../modules/erc20-helper/src/ERC20Helper.sol";
-import { IMapleProxyFactory }    from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxyFactory.sol";
-import { MapleProxiedInternals } from "../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
+import { ERC20Helper }        from "../modules/erc20-helper/src/ERC20Helper.sol";
+import { IMapleProxyFactory } from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxyFactory.sol";
 
 import { IMapleBasicStrategy } from "./interfaces/basicStrategy/IMapleBasicStrategy.sol";
 
 import {
     IERC20Like,
+    IERC4626Like,
     IGlobalsLike,
     IPoolLike,
     IPoolManagerLike
@@ -38,8 +38,44 @@ import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , MapleAbstractStrategy {
 
     /**************************************************************************************************************************************/
-    /*** Internal Functions                                                                                                              ***/
+    /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
+
+    // TODO: Validation before and after funding
+    // TODO: Should we pass a min amount of shares we expect and validate
+    // TODO: Add Fees
+    function fundStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        // Prepare funds for the strategy
+        address strategyVault_ = strategyVault;
+
+        _prepareFundsForStrategy(strategyVault_, assets_);
+
+        // Fund Strategy
+        uint256 shares_ = IERC4626Like(strategyVault_).deposit(assets_, address(this));
+
+        emit StrategyFunded(assets_, shares_);
+    }
+
+    /**************************************************************************************************************************************/
+    /*** Strategy View Functions                                                                                                        ***/
+    /**************************************************************************************************************************************/
+
+    // TODO: Must net out fees from AUM
+    function assetsUnderManagement() external view override returns (uint256 assetsUnderManagement_) {
+        return IERC4626Like(strategyVault).convertToAssets(IERC20Like(strategyVault).balanceOf(address(this)));
+    }
+
+    /**************************************************************************************************************************************/
+    /*** Internal Functions                                                                                                             ***/
+    /**************************************************************************************************************************************/
+
+    function _prepareFundsForStrategy(address destination_, uint256 amount_) internal {
+        // Request funds from Pool Manager.
+        IPoolManagerLike(poolManager).requestFunds(address(this), amount_);
+
+        // Approve the strategy to use these funds.
+        require(ERC20Helper.approve(fundsAsset, destination_, amount_), "MBS:PFFS:APPROVE_FAILED");
+    }
 
     function _setLock(uint256 lock_) internal override {
         locked = lock_;
@@ -54,7 +90,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     /**************************************************************************************************************************************/
 
     function asset() public view override returns (address asset_) {
-        asset_ = IPoolLike(pool).asset();
+        asset_ = fundsAsset;
     }
 
     function factory() external view override returns (address factory_) {
