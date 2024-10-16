@@ -56,6 +56,16 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
         emit StrategyFunded(assets_, shares_);
     }
 
+    // TODO: Validation before and after funding
+    // TODO: Should we pass in the min amount of assets we expect and validate
+    // TODO: Add Fees
+    function redeemFromStrategy(uint256 shares_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        // Redeem from Strategy
+        uint256 assets_ = IERC4626Like(strategyVault).redeem(shares_, address(pool), address(this));
+
+        emit StrategyRedeemed(assets_, shares_);
+    }
+
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
     /**************************************************************************************************************************************/

@@ -89,7 +89,7 @@ contract MapleBasicStrategyFundStrategyTests is TestBase {
         strategy.fundStrategy(1e18);
     }
 
-    function test_fund_failIfNonManager() external {
+    function test_fund_failIfNotStrategyManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
@@ -120,7 +120,7 @@ contract MapleBasicStrategyFundStrategyTests is TestBase {
         strategy.fundStrategy(1e18);
     }
 
-    function test_fund_successWithStrategyManagerBot() external {
+    function test_fund_successWithStrategyManager() external {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
         vm.expectEmit();
@@ -143,6 +143,67 @@ contract MapleBasicStrategyFundStrategyTests is TestBase {
 
         vm.prank(strategyManager);
         strategy.fundStrategy(1e18);
+    }
+
+}
+
+contract MapleBasicStrategyRedeemFromStrategyTests is TestBase {
+
+    event StrategyRedeemed(uint256 shares, uint256 assets);
+
+    function setUp() public override {
+        super.setUp();
+    }
+
+    function test_redeemFromStrategy_failReentrancy() external {
+        vm.etch(address(strategy), address(new MapleStrategyHarness()).code);
+
+        MapleStrategyHarness(address(strategy)).setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.redeemFromStrategy(1e18);
+    }
+
+    function test_redeemFromStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.redeemFromStrategy(1e18);
+    }
+
+    function test_redeemFromStrategy_failIfNotStrategyManager() external {
+        globals.__setIsInstanceOf(false);
+
+        vm.expectRevert("MS:NOT_MANAGER");
+        strategy.redeemFromStrategy(1e18);
+    }
+
+    function test_redeemFromStrategy_successWithPoolDelegate() external {
+        vm.expectEmit();
+        emit StrategyRedeemed(1e18, 1e18);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.redeem, (1e18, address(pool), address(strategy)))
+        );
+
+        vm.prank(poolDelegate);
+        strategy.redeemFromStrategy(1e18);
+    }
+
+    function test_redeemFromStrategy_successWithStrategyManager() external {
+        assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
+
+        vm.expectEmit();
+        emit StrategyRedeemed(1e18, 1e18);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.redeem, (1e18, address(pool), address(strategy)))
+        );
+
+        vm.prank(strategyManager);
+        strategy.redeemFromStrategy(1e18);
     }
 
 }

@@ -16,6 +16,13 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
      */
     event StrategyFunded(uint256 assets, uint256 shares);
 
+    /**
+     *  @dev   The strategy contract has exchanged `shares` for `assets` that are held by the strategy contract.
+     *  @param shares The amount of shares redeemed.
+     *  @param assets The amount of assets withdrawn.
+     */
+    event StrategyRedeemed(uint256 shares, uint256 assets);
+
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
@@ -25,6 +32,12 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
      *  @param assets Amount of the Pool assets to deploy into the strategy.
      */
     function fundStrategy(uint256 assets) external;
+
+    /**
+     *  @dev   Redeems the given amount of shares from the strategy.
+     *  @param shares Amount of shares to redeem.
+     */
+    function redeemFromStrategy(uint256 shares) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
