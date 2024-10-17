@@ -157,7 +157,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
 contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
-    event StrategyWithdrawal(uint256 assets);
+    event StrategyWithdrawal(uint256 assets, uint256 shares);
 
     function setUp() public override {
         super.setUp();
@@ -188,7 +188,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(1e18);
+        emit StrategyWithdrawal(1e18, 1e18);
 
         vm.expectCall(
             address(vault),
@@ -203,7 +203,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(1e18);
+        emit StrategyWithdrawal(1e18, 1e18);
 
         vm.expectCall(
             address(vault),
@@ -220,7 +220,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         vault.__setExchangeRate(1);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(2e18);
+        emit StrategyWithdrawal(2e18, 2e18);
 
         vm.expectCall(
             address(vault),

@@ -19,8 +19,9 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
     /**
      *  @dev   The strategy contract has withdrawn shares for `assets` into the Pool.
      *  @param assets The amount of assets withdrawn.
+     *  @param shares The amount of shares burned.
      */
-    event StrategyWithdrawal(uint256 assets);
+    event StrategyWithdrawal(uint256 assets, uint256 shares);
 
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
@@ -36,9 +37,8 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
      *  @dev    Withdraws the given amount of assets from the strategy.
      *  @param  assets          Amount of assets to withdraw from the strategy.
      *  @param  maxAssets       Flag indicating whether to withdraw all available assets from the strategy.
-     *  @return assetsWithdrawn The amount of assets withdrawn from the strategy.
      */
-    function withdrawFromStrategy(uint256 assets, bool maxAssets) external returns (uint256 assetsWithdrawn);
+    function withdrawFromStrategy(uint256 assets, bool maxAssets) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
