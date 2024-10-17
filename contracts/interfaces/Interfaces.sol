@@ -1,6 +1,24 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+interface IAavePoolLike {
+
+    function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
+
+    function withdraw(address asset, uint256 amount, address to) external returns (uint256);
+
+}
+
+interface IAaveTokenLike {
+
+    function balanceOf(address account_) external view returns (uint256 balance_);
+
+    function POOL() external view returns (address pool);
+
+    function UNDERLYING_ASSET_ADDRESS() external view returns (address asset);
+
+}
+
 interface IERC20Like {
 
     function approve(address spender, uint256 amount) external returns (bool success);
@@ -53,7 +71,7 @@ interface IMapleProxyFactoryLike {
 
     function isInstance(address instance_) external view returns (bool isInstance_);
 
-    function mapleGlobals() external returns (address globals_);
+    function mapleGlobals() external view returns (address globals_);
 
 }
 

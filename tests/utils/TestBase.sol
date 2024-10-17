@@ -4,14 +4,26 @@ pragma solidity ^0.8.0;
 import { console2 as console, Test } from "../../modules/forge-std/src/Test.sol";
 import { MockERC20 }                 from "../../modules/erc20/contracts/test/mocks/MockERC20.sol";
 
-import { MapleStrategyFactory }          from "../../contracts/proxy/MapleStrategyFactory.sol";
+import { MapleStrategyFactory } from "../../contracts/proxy/MapleStrategyFactory.sol";
+
+import { MapleAaveStrategyInitializer }  from "../../contracts/proxy/aaveStrategy/MapleAaveStrategyInitializer.sol";
 import { MapleBasicStrategyInitializer } from "../../contracts/proxy/basicStrategy/MapleBasicStrategyInitializer.sol";
 import { MapleSkyStrategyInitializer }   from "../../contracts/proxy/skyStrategy/MapleSkyStrategyInitializer.sol";
 
+import { MapleAaveStrategy }  from "../../contracts/MapleAaveStrategy.sol";
 import { MapleBasicStrategy } from "../../contracts/MapleBasicStrategy.sol";
 import { MapleSkyStrategy }   from "../../contracts/MapleSkyStrategy.sol";
 
-import { MockFactory, MockGlobals, MockPool, MockPoolManager, MockVault, MockPSM } from "./Mocks.sol";
+import {
+    MockAavePool,
+    MockAaveToken,
+    MockFactory,
+    MockGlobals,
+    MockPool,
+    MockPoolManager,
+    MockPSM,
+    MockVault
+} from "./Mocks.sol";
 
 contract TestBase is Test {
 
@@ -24,7 +36,6 @@ contract TestBase is Test {
 
     address internal implementation;
     address internal initializer;
-    address internal pm;
 
     MockERC20       internal asset;
     MockGlobals     internal globals;
@@ -54,8 +65,6 @@ contract TestBase is Test {
         globals.__setSecurityAdmin(securityAdmin);
 
         factory = new MapleStrategyFactory(address(globals));
-
-        pm = address(poolManager);
     }
 
 }
@@ -85,6 +94,7 @@ contract BasicStrategyTestBase is TestBase {
         }));
 
     }
+
 }
 
 contract SkyStrategyTestBase is TestBase {
@@ -117,6 +127,36 @@ contract SkyStrategyTestBase is TestBase {
         //Create the strategy instance.
         strategy = MapleSkyStrategy(factory.createInstance({
             arguments_: abi.encode(address(pool), address(vault), address(psm)),
+            salt_:      "SALT"
+        }));
+    }
+
+}
+
+contract AaveStrategyTestBase is TestBase {
+
+    MockAavePool   aavePool;
+    MockAaveToken  aaveToken;
+
+    MapleAaveStrategy strategy;
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        implementation = address(new MapleAaveStrategy());
+        initializer    = address(new MapleAaveStrategyInitializer());
+
+        aavePool  = new MockAavePool();
+        aaveToken = new MockAaveToken(address(aavePool), address(asset));
+
+        vm.startPrank(governor);
+        factory.registerImplementation(1, implementation, initializer);
+        factory.setDefaultVersion(1);
+        vm.stopPrank();
+
+        // Create the strategy instance.
+        strategy = MapleAaveStrategy(factory.createInstance({
+            arguments_: abi.encode(address(pool), address(aaveToken)),
             salt_:      "SALT"
         }));
     }

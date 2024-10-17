@@ -232,4 +232,3 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
     }
 
 }
-

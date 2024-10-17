@@ -5,6 +5,30 @@ import { MockERC20 } from "../../modules/erc20/contracts/test/mocks/MockERC20.so
 
 import { MapleBasicStrategyStorage } from "../../contracts/proxy/basicStrategy/MapleBasicStrategyStorage.sol";
 
+contract MockAavePool {
+
+    function supply(address, uint256, address, uint16) external {}
+
+    function withdraw(address, uint256, address) external returns (uint256) {}
+
+}
+
+contract MockAaveToken {
+
+    constructor(address aavePool_, address underlyingAsset_) {
+        POOL                     = aavePool_;
+        UNDERLYING_ASSET_ADDRESS = underlyingAsset_;
+    }
+
+    address public POOL;
+    address public UNDERLYING_ASSET_ADDRESS;
+
+    function __setUnderlyingAsset(address underlyingAsset_) external {
+        UNDERLYING_ASSET_ADDRESS = underlyingAsset_;
+    }
+
+}
+
 contract MockFactory {
 
     bool _isInstance;
@@ -135,7 +159,7 @@ contract MockPoolManager {
         factory = factory_;
     }
 
-    function requestFunds(address destination_, uint256 principal_) external pure {}
+    function requestFunds(address, uint256) external { }
 
 }
 
