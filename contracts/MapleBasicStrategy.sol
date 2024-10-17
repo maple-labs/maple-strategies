@@ -45,9 +45,11 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     // TODO: Should we pass a min amount of shares we expect and validate
     // TODO: Add Fees
     function fundStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        // Prepare funds for the strategy
         address strategyVault_ = strategyVault;
 
+        require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBS:FS:INVALID_STRATEGY_VAULT");
+
+        // Prepare funds for the strategy
         _prepareFundsForStrategy(strategyVault_, assets_);
 
         // Fund Strategy
@@ -59,11 +61,14 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     // TODO: Validation before and after funding
     // TODO: Should we pass in the min amount of assets we expect and validate
     // TODO: Add Fees
-    function redeemFromStrategy(uint256 shares_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        // Redeem from Strategy
-        uint256 assets_ = IERC4626Like(strategyVault).redeem(shares_, address(pool), address(this));
+    function withdrawFromStrategy(uint256 assets_, bool maxAssets_)
+        public override nonReentrant whenProtocolNotPaused onlyStrategyManager returns (uint256 assetsWithdrawn_)
+    {
+        assets_ = maxAssets_ ? assetsUnderManagement() : assets_;
 
-        emit StrategyRedeemed(assets_, shares_);
+        assetsWithdrawn_ = IERC4626Like(strategyVault).withdraw(assets_, address(pool), address(this));
+
+        emit StrategyWithdrawal(assetsWithdrawn_);
     }
 
     /**************************************************************************************************************************************/
@@ -71,8 +76,10 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     /**************************************************************************************************************************************/
 
     // TODO: Must net out fees from AUM
-    function assetsUnderManagement() external view override returns (uint256 assetsUnderManagement_) {
-        return IERC4626Like(strategyVault).convertToAssets(IERC20Like(strategyVault).balanceOf(address(this)));
+    function assetsUnderManagement() public view override returns (uint256 assetsUnderManagement_) {
+        address strategyVault_ = strategyVault;
+
+        return IERC4626Like(strategyVault_).convertToAssets(IERC20Like(strategyVault_).balanceOf(address(this)));
     }
 
     /**************************************************************************************************************************************/

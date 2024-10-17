@@ -167,6 +167,10 @@ contract MockVault {
         return amount_;
     }
 
+    function withdraw(uint256 amount_, address, address) external pure returns (uint256) {
+        return amount_;
+    }
+
     function __setBalanceOf(address account_, uint256 amount_) external {
         balances[account_] = amount_;
     }

@@ -96,6 +96,14 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         strategy.fundStrategy(1e18);
     }
 
+    function test_fund_failInvalidStrategyVault() external {
+        globals.__setIsInstanceOf(false);
+
+        vm.expectRevert("MBS:FS:INVALID_STRATEGY_VAULT");
+        vm.prank(poolDelegate);
+        strategy.fundStrategy(1e18);
+    }
+
     function test_fund_successWithPoolDelegate() external {
         vm.expectEmit();
         emit StrategyFunded(1e18, 1e18);
@@ -147,63 +155,81 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
 }
 
-contract MapleBasicStrategyRedeemFromStrategyTests is BasicStrategyTestBase {
+contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
-    event StrategyRedeemed(uint256 shares, uint256 assets);
+    event StrategyWithdrawal(uint256 assets);
 
     function setUp() public override {
         super.setUp();
     }
 
-    function test_redeemFromStrategy_failReentrancy() external {
+    function test_withdrawFromStrategy_failReentrancy() external {
         vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
 
         MapleBasicStrategyHarness(address(strategy)).setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.redeemFromStrategy(1e18);
+        strategy.withdrawFromStrategy(1e18, false);
     }
 
-    function test_redeemFromStrategy_failWhenPaused() external {
+    function test_withdrawFromStrategy_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.redeemFromStrategy(1e18);
+        strategy.withdrawFromStrategy(1e18, false);
     }
 
-    function test_redeemFromStrategy_failIfNotStrategyManager() external {
+    function test_withdrawFromStrategy_failIfNotStrategyManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
-        strategy.redeemFromStrategy(1e18);
+        strategy.withdrawFromStrategy(1e18, false);
     }
 
-    function test_redeemFromStrategy_successWithPoolDelegate() external {
+    function test_withdrawFromStrategy_successWithPoolDelegate() external {
         vm.expectEmit();
-        emit StrategyRedeemed(1e18, 1e18);
+        emit StrategyWithdrawal(1e18);
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.redeem, (1e18, address(pool), address(strategy)))
+            abi.encodeCall(IERC4626Like.withdraw, (1e18, address(pool), address(strategy)))
         );
 
         vm.prank(poolDelegate);
-        strategy.redeemFromStrategy(1e18);
+        strategy.withdrawFromStrategy(1e18, false);
     }
 
-    function test_redeemFromStrategy_successWithStrategyManager() external {
+    function test_withdrawFromStrategy_successWithStrategyManager() external {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
         vm.expectEmit();
-        emit StrategyRedeemed(1e18, 1e18);
+        emit StrategyWithdrawal(1e18);
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.redeem, (1e18, address(pool), address(strategy)))
+            abi.encodeCall(IERC4626Like.withdraw, (1e18, address(pool), address(strategy)))
         );
 
         vm.prank(strategyManager);
-        strategy.redeemFromStrategy(1e18);
+        strategy.withdrawFromStrategy(1e18, false);
+    }
+
+    function test_withdrawFromStrategy_successWithPoolDelegate_maximum() external {
+        // Set Balance to mock increase in AUM
+        vault.__setBalanceOf(address(strategy), 2e18);
+        vault.__setExchangeRate(1);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(2e18);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (2e18, address(pool), address(strategy)))
+        );
+
+        vm.prank(poolDelegate);
+        strategy.withdrawFromStrategy(2e18, true);
     }
 
 }
+
