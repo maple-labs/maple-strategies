@@ -183,4 +183,43 @@ contract MockVault {
         assets_ = shares_ * exchangeRate;
     }
 
+    function __setAsset(address asset_) external {
+        asset = asset_;
+    }
+
+}
+
+contract MockPSM {
+
+    address public gem;
+    address public usds;
+
+    uint256 public to18ConversionFactor = 1e18;
+    uint256 public tin;
+    uint256 public tout;
+
+    function buyGem(address, uint256 gemAmt) external pure returns (uint256 daiInWad) {
+        return gemAmt;
+    }
+
+    function sellGem(address, uint256 gemAmt) external pure returns (uint256 daiOutWad) {
+        return gemAmt;
+    }
+
+    function __setGem(address gem_) external {
+        gem = gem_;
+    }
+
+    function __setUsds(address usds_) external {
+        usds = usds_;
+    }
+
+    function __setTin(uint256 tin_) external {
+        tin = tin_;
+    }
+
+    function __setTout(uint256 tout_) external {
+        tout = tout_;
+    }
+
 }

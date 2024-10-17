@@ -70,3 +70,21 @@ interface IPoolManagerLike {
     function requestFunds(address destination_, uint256 principal_) external;
 
 }
+
+interface IPSMLike {
+
+    function buyGem(address usr, uint256 gemAmt) external returns (uint256 daiInWad);
+
+    function gem() external view returns (address gem_);
+
+    function sellGem(address usr, uint256 gemAmt) external returns (uint256 daiOutWad);
+
+    function tin() external view returns (uint256 tin); // Sell side fee
+
+    function tout() external view returns (uint256 tout); // Buy side fee
+
+    function to18ConversionFactor() external view returns (uint256 to18ConversionFactor);
+
+    function usds() external view returns (address usds_);
+
+}

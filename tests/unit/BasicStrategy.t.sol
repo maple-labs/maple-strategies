@@ -5,11 +5,11 @@ import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
 import { IERC20Like, IERC4626Like, IPoolManagerLike } from "../../contracts/interfaces/Interfaces.sol";
 
-import { TestBase }             from "../utils/TestBase.sol";
-import { MapleStrategyHarness } from "../utils/Harnesses.sol";
+import { BasicStrategyTestBase }     from "../utils/TestBase.sol";
+import { MapleBasicStrategyHarness } from "../utils/Harnesses.sol";
 
 // TODO: Need to add AUM tests when fee logic added
-contract MapleBasicStrategyViewFunctionTests is TestBase {
+contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
     function setUp() public override {
         super.setUp();
@@ -65,7 +65,7 @@ contract MapleBasicStrategyViewFunctionTests is TestBase {
 
 }
 
-contract MapleBasicStrategyFundStrategyTests is TestBase {
+contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
     event StrategyFunded(uint256 assets, uint256 shares);
 
@@ -74,9 +74,9 @@ contract MapleBasicStrategyFundStrategyTests is TestBase {
     }
 
     function test_fund_failReentrancy() external {
-        vm.etch(address(strategy), address(new MapleStrategyHarness()).code);
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
 
-        MapleStrategyHarness(address(strategy)).setLocked(2);
+        MapleBasicStrategyHarness(address(strategy)).setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.fundStrategy(1e18);
@@ -147,7 +147,7 @@ contract MapleBasicStrategyFundStrategyTests is TestBase {
 
 }
 
-contract MapleBasicStrategyRedeemFromStrategyTests is TestBase {
+contract MapleBasicStrategyRedeemFromStrategyTests is BasicStrategyTestBase {
 
     event StrategyRedeemed(uint256 shares, uint256 assets);
 
@@ -156,9 +156,9 @@ contract MapleBasicStrategyRedeemFromStrategyTests is TestBase {
     }
 
     function test_redeemFromStrategy_failReentrancy() external {
-        vm.etch(address(strategy), address(new MapleStrategyHarness()).code);
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
 
-        MapleStrategyHarness(address(strategy)).setLocked(2);
+        MapleBasicStrategyHarness(address(strategy)).setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.redeemFromStrategy(1e18);

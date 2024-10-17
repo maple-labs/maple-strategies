@@ -6,10 +6,12 @@ import { MockERC20 }                 from "../../modules/erc20/contracts/test/mo
 
 import { MapleStrategyFactory }          from "../../contracts/proxy/MapleStrategyFactory.sol";
 import { MapleBasicStrategyInitializer } from "../../contracts/proxy/basicStrategy/MapleBasicStrategyInitializer.sol";
+import { MapleSkyStrategyInitializer }   from "../../contracts/proxy/skyStrategy/MapleSkyStrategyInitializer.sol";
 
 import { MapleBasicStrategy } from "../../contracts/MapleBasicStrategy.sol";
+import { MapleSkyStrategy }   from "../../contracts/MapleSkyStrategy.sol";
 
-import { MockFactory, MockGlobals, MockPool, MockPoolManager, MockVault } from "./Mocks.sol";
+import { MockFactory, MockGlobals, MockPool, MockPoolManager, MockVault, MockPSM } from "./Mocks.sol";
 
 contract TestBase is Test {
 
@@ -29,10 +31,8 @@ contract TestBase is Test {
     MockFactory     internal poolManagerFactory;
     MockPool        internal pool;
     MockPoolManager internal poolManager;
-    MockVault       internal vault;
 
     MapleStrategyFactory internal factory;
-    MapleBasicStrategy   internal strategy;
 
     function setUp() public virtual {
         // Create all mocks.
@@ -53,11 +53,25 @@ contract TestBase is Test {
         globals.__setOperationalAdmin(operationalAdmin);
         globals.__setSecurityAdmin(securityAdmin);
 
+        factory = new MapleStrategyFactory(address(globals));
+
+        pm = address(poolManager);
+    }
+
+}
+
+contract BasicStrategyTestBase is TestBase {
+
+    MapleBasicStrategy internal strategy;
+    MockVault          internal vault;
+
+    function setUp() public virtual override {
+        super.setUp();
+
         implementation = address(new MapleBasicStrategy());
         initializer    = address(new MapleBasicStrategyInitializer());
 
         vm.startPrank(governor);
-        factory = new MapleStrategyFactory(address(globals));
         factory.registerImplementation(1, implementation, initializer);
         factory.setDefaultVersion(1);
         vm.stopPrank();
@@ -70,7 +84,41 @@ contract TestBase is Test {
             salt_:      "SALT"
         }));
 
-        pm = address(poolManager);
+    }
+}
+
+contract SkyStrategyTestBase is TestBase {
+
+    event StrategyFunded(uint256 assets, uint256 shares, uint256 usdsAmount);
+
+    MapleSkyStrategy  strategy;
+    MockPSM           psm;
+    MockVault         vault;
+    MockERC20         usds;
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        implementation = address(new MapleSkyStrategy());
+        initializer    = address(new MapleSkyStrategyInitializer());
+
+        vm.startPrank(governor);
+        factory.registerImplementation(1, implementation, initializer);
+        factory.setDefaultVersion(1);
+        vm.stopPrank();
+
+        psm   = new MockPSM();
+        usds  = new MockERC20("usds", "USDS", 18);
+        vault = new MockVault(address(usds));
+
+        psm.__setUsds(address(usds));
+        psm.__setGem(address(asset));
+
+        //Create the strategy instance.
+        strategy = MapleSkyStrategy(factory.createInstance({
+            arguments_: abi.encode(address(pool), address(vault), address(psm)),
+            salt_:      "SALT"
+        }));
     }
 
 }
