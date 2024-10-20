@@ -3,7 +3,14 @@ pragma solidity ^0.8.0;
 
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
-import { IERC20Like, IERC4626Like, IPoolManagerLike } from "../../contracts/interfaces/Interfaces.sol";
+import { IMapleBasicStrategy } from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategy.sol";
+
+import {
+    IERC20Like,
+    IERC4626Like,
+    IGlobalsLike,
+    IPoolManagerLike
+} from "../../contracts/interfaces/Interfaces.sol";
 
 import { BasicStrategyTestBase }     from "../utils/TestBase.sol";
 import { MapleBasicStrategyHarness } from "../utils/Harnesses.sol";
@@ -159,8 +166,13 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
     event StrategyWithdrawal(uint256 assets, uint256 shares);
 
+    uint256 assets = 1e18;
+
     function setUp() public override {
         super.setUp();
+
+        vault.__setBalanceOf(address(strategy), assets);
+        vault.__setExchangeRate(1);
     }
 
     function test_withdrawFromStrategy_failReentrancy() external {
@@ -169,66 +181,95 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         MapleBasicStrategyHarness(address(strategy)).setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.withdrawFromStrategy(1e18, false);
+        strategy.withdrawFromStrategy(assets);
     }
 
     function test_withdrawFromStrategy_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.withdrawFromStrategy(1e18, false);
+        strategy.withdrawFromStrategy(assets);
     }
 
     function test_withdrawFromStrategy_failIfNotStrategyManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
-        strategy.withdrawFromStrategy(1e18, false);
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdrawFromStrategy_failLowAssets() external {
+        vm.expectRevert("MBS:WFS:LOW_ASSETS");
+        vm.prank(poolDelegate);
+        strategy.withdrawFromStrategy(assets + 1);
     }
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(1e18, 1e18);
+        emit StrategyWithdrawal(assets, assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(poolManager),
+            abi.encodeCall(IPoolManagerLike.poolDelegate, ())
+        );
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.withdraw, (1e18, address(pool), address(strategy)))
+            abi.encodeCall(IERC4626Like.balanceOf, (address(strategy)))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (assets))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (assets, address(pool), address(strategy)))
         );
 
         vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(1e18, false);
+        strategy.withdrawFromStrategy(assets);
     }
 
     function test_withdrawFromStrategy_successWithStrategyManager() external {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(1e18, 1e18);
+        emit StrategyWithdrawal(assets, assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.withdraw, (1e18, address(pool), address(strategy)))
+            abi.encodeCall(IERC4626Like.balanceOf, (address(strategy)))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (assets))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (assets, address(pool), address(strategy)))
         );
 
         vm.prank(strategyManager);
-        strategy.withdrawFromStrategy(1e18, false);
-    }
-
-    function test_withdrawFromStrategy_successWithPoolDelegate_maximum() external {
-        // Set Balance to mock increase in AUM
-        vault.__setBalanceOf(address(strategy), 2e18);
-        vault.__setExchangeRate(1);
-
-        vm.expectEmit();
-        emit StrategyWithdrawal(2e18, 2e18);
-
-        vm.expectCall(
-            address(vault),
-            abi.encodeCall(IERC4626Like.withdraw, (2e18, address(pool), address(strategy)))
-        );
-
-        vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(2e18, true);
+        strategy.withdrawFromStrategy(assets);
     }
 
 }

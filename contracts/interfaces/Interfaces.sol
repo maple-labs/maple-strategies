@@ -31,6 +31,8 @@ interface IERC4626Like {
 
     function asset() external view returns (address asset_);
 
+    function balanceOf(address account_) external view returns (uint256 balance_);
+
     function convertToAssets(uint256 shares_) external view returns (uint256 assets_);
 
     function convertToShares(uint256 assets_) external view returns (uint256 shares_);

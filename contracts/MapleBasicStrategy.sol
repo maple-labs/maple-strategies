@@ -61,8 +61,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     // TODO: Validation before and after funding
     // TODO: Should we pass in the min amount of assets we expect and validate
     // TODO: Add Fees
-    function withdrawFromStrategy(uint256 assets_, bool maxAssets_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        assets_ = maxAssets_ ? assetsUnderManagement() : assets_;
+    function withdrawFromStrategy(uint256 assets_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assets_ <= assetsUnderManagement(), "MBS:WFS:LOW_ASSETS");
 
         uint256 sharesWithdrawn_ = IERC4626Like(strategyVault).withdraw(assets_, address(pool), address(this));
 

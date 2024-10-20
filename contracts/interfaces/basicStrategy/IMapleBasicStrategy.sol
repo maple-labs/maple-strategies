@@ -35,10 +35,9 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
 
     /**
      *  @dev    Withdraws the given amount of assets from the strategy.
-     *  @param  assets          Amount of assets to withdraw from the strategy.
-     *  @param  maxAssets       Flag indicating whether to withdraw all available assets from the strategy.
+     *  @param  assets Amount of assets to withdraw from the strategy.
      */
-    function withdrawFromStrategy(uint256 assets, bool maxAssets) external;
+    function withdrawFromStrategy(uint256 assets) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
