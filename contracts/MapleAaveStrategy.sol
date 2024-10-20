@@ -29,8 +29,8 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         address aavePool_   = aavePool;
         address fundsAsset_ = fundsAsset;
 
-        require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", aavePool_), "MAS:FS:INVALID_STRATEGY_VAULT");
-        require(ERC20Helper.approve(fundsAsset_, aavePool_, assets_),              "MAS:FS:APPROVE_FAIL");
+        require(_validatePool(aavePool_),                             "MAS:FS:INVALID_AAVE_POOL");
+        require(ERC20Helper.approve(fundsAsset_, aavePool_, assets_), "MAS:FS:APPROVE_FAIL");
 
         IPoolManagerLike(poolManager).requestFunds(address(this), assets_);
 
@@ -39,11 +39,19 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         emit StrategyFunded(assets_);
     }
 
+    function withdrawFromStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assets_ <= assetsUnderManagement(), "MAS:WFS:LOW_ASSETS");
+
+        IAavePoolLike(aavePool).withdraw(fundsAsset, assets_, pool);
+
+        emit StrategyWithdrawal(assets_);
+    }
+
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
     /**************************************************************************************************************************************/
 
-    function assetsUnderManagement() external view virtual override returns (uint256) {
+    function assetsUnderManagement() public view override returns (uint256) {
         return IAaveTokenLike(aaveToken).balanceOf(address(this));
     }
 
@@ -57,6 +65,10 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
 
     function _locked() internal view override returns (uint256) {
         return locked;
+    }
+
+    function _validatePool(address aavePool_) internal view returns (bool isValid_) {
+        isValid_ = IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", aavePool_);
     }
 
     /**************************************************************************************************************************************/

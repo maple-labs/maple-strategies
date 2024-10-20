@@ -23,6 +23,12 @@ contract MockAaveToken {
     address public POOL;
     address public UNDERLYING_ASSET_ADDRESS;
 
+    mapping(address account => uint256 balance) public balanceOf;
+
+    function __setBalanceOf(address account_, uint256 amount_) external {
+        balanceOf[account_] = amount_;
+    }
+
     function __setUnderlyingAsset(address underlyingAsset_) external {
         UNDERLYING_ASSET_ADDRESS = underlyingAsset_;
     }

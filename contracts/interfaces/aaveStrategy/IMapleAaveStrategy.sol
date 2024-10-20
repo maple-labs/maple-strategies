@@ -15,6 +15,12 @@ interface IMapleAaveStrategy is IMapleAaveStrategyStorage {
      */
     event StrategyFunded(uint256 assets);
 
+    /**
+     *  @dev   Emitted when assets are withdrawn from the strategy.
+     *  @param assets Amount of assets withdrawn.
+     */
+    event StrategyWithdrawal(uint256 assets);
+
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
@@ -24,6 +30,12 @@ interface IMapleAaveStrategy is IMapleAaveStrategyStorage {
      *  @param assets Amount of assets to deploy.
      */
     function fundStrategy(uint256 assets) external;
+
+    /**
+     *  @dev   Withdraw assets from the strategy back into the Maple pool.
+     *  @param assets Amount of assets to withdraw.
+     */
+    function withdrawFromStrategy(uint256 assets) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/

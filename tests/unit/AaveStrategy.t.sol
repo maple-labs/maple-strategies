@@ -3,7 +3,15 @@ pragma solidity ^0.8.0;
 
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
-import { IAavePoolLike, IERC20Like, IPoolManagerLike } from "../../contracts/interfaces/Interfaces.sol";
+import { IMapleAaveStrategy } from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategy.sol";
+
+import {
+    IAavePoolLike,
+    IAaveTokenLike,
+    IERC20Like,
+    IGlobalsLike,
+    IPoolManagerLike
+} from "../../contracts/interfaces/Interfaces.sol";
 
 import { MapleAaveStrategyHarness } from "../utils/Harnesses.sol";
 import { AaveStrategyTestBase }     from "../utils/TestBase.sol";
@@ -93,12 +101,12 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
         strategy.fundStrategy(assets);
     }
 
-    function test_fund_failIfInvalidStrategyVault() external {
+    function test_fund_failIfInvalidAavePool() external {
         globals.__setIsInstanceOf(false);
 
         vm.prank(poolDelegate);
-        vm.expectRevert("MAS:FS:INVALID_STRATEGY_VAULT");
-        strategy.fundStrategy(1e18);
+        vm.expectRevert("MAS:FS:INVALID_AAVE_POOL");
+        strategy.fundStrategy(assets);
     }
 
     function test_fundStrategy_successWithPoolDelegate() external {
@@ -145,6 +153,100 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
 
         vm.prank(strategyManager);
         strategy.fundStrategy(assets);
+    }
+
+}
+
+contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
+
+    event StrategyWithdrawal(uint256 assets);
+
+    uint256 assets = 1e18;
+
+    function setUp() public override {
+        super.setUp();
+
+        aaveToken.__setBalanceOf(address(strategy), assets);
+    }
+
+    function test_withdrawFromStrategy_failReentrancy() external {
+        vm.etch(address(strategy), address(new MapleAaveStrategyHarness()).code);
+
+        MapleAaveStrategyHarness(address(strategy)).__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdrawFromStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdrawFromStrategy_failIfNonManager() external {
+        globals.__setIsInstanceOf(false);
+
+        vm.expectRevert("MS:NOT_MANAGER");
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdrawFromStrategy_failIfLowAssets() external {
+        vm.prank(poolDelegate);
+        vm.expectRevert("MAS:WFS:LOW_ASSETS");
+        strategy.withdrawFromStrategy(assets + 1);
+    }
+
+    function test_withdrawFromStrategy_successWithPoolDelegate() external {
+        vm.expectEmit();
+        emit StrategyWithdrawal(assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(aaveToken),
+            abi.encodeCall(IAaveTokenLike.balanceOf, (address(strategy)))
+        );
+
+        vm.expectCall(
+            address(aavePool),
+            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assets, address(pool)))
+        );
+
+        vm.prank(poolDelegate);
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdrawFromStrategy_successWithStrategyManager() external {
+        vm.expectEmit();
+        emit StrategyWithdrawal(assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
+
+        vm.expectCall(
+            address(aaveToken),
+            abi.encodeCall(IAaveTokenLike.balanceOf, (address(strategy)))
+        );
+
+        vm.expectCall(
+            address(aavePool),
+            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assets, address(pool)))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assets);
     }
 
 }
