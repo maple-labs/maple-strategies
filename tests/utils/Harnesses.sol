@@ -7,7 +7,7 @@ import { MapleSkyStrategy }   from "../../contracts/MapleSkyStrategy.sol";
 
 contract MapleBasicStrategyHarness is MapleBasicStrategy {
 
-    function accrueFees(address strategyVault_) external {
+    function __accrueFees(address strategyVault_) external {
         _accrueFees(strategyVault_);
     }
 

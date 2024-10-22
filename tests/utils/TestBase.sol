@@ -75,7 +75,7 @@ contract TestBase is Test {
 
 contract BasicStrategyTestBase is TestBase {
 
-    event FeeWithdrawal(uint256 feeAmount);
+    event StrategyFeesCollected(uint256 feeAmount);
     event StrategyFeeRateSet(uint256 feeRate);
     event StrategyFunded(uint256 assets);
     event StrategyWithdrawal(uint256 assets);

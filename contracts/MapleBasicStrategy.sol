@@ -46,36 +46,36 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
 
     // TODO: Validation before and after funding
     // TODO: Should we pass a min amount of shares we expect and validate
-    function fundStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
         address strategyVault_ = strategyVault;
 
         require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBS:FS:INVALID_STRATEGY_VAULT");
 
         _accrueFees(strategyVault_);
 
-        lastRecordedTotalAssets += assets_;
+        lastRecordedTotalAssets += assetsIn_;
 
-        _prepareFundsForStrategy(strategyVault_, assets_);
+        _prepareFundsForStrategy(strategyVault_, assetsIn_);
 
-        IERC4626Like(strategyVault_).deposit(assets_, address(this));
+        IERC4626Like(strategyVault_).deposit(assetsIn_, address(this));
 
-        emit StrategyFunded(assets_);
+        emit StrategyFunded(assetsIn_);
     }
 
     // TODO: Validation before and after funding
     // TODO: Should we pass in the min amount of assets we expect and validate
-    function withdrawFromStrategy(uint256 assets_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        require(assets_ <= assetsUnderManagement(), "MBS:WFS:LOW_ASSETS");
+    function withdrawFromStrategy(uint256 assetsOut_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assetsOut_ <= assetsUnderManagement(), "MBS:WFS:LOW_ASSETS");
 
         address strategyVault_ = strategyVault;
 
         _accrueFees(strategyVault_);
 
-        lastRecordedTotalAssets -= assets_;
+        lastRecordedTotalAssets -= assetsOut_;
 
-        IERC4626Like(strategyVault_).withdraw(assets_, address(pool), address(this));
+        IERC4626Like(strategyVault_).withdraw(assetsOut_, address(pool), address(this));
 
-        emit StrategyWithdrawal(assets_);
+        emit StrategyWithdrawal(assetsOut_);
     }
 
     function setStrategyFeeRate(uint256 strategyFeeRate_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
@@ -135,7 +135,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
         if (strategyFee_ != 0) {
             IERC4626Like(strategyVault_).withdraw(strategyFee_, treasury(), address(this));
 
-            emit FeeWithdrawal(strategyFee_);
+            emit StrategyFeesCollected(strategyFee_);
         }
 
         // Record the TotalAssets

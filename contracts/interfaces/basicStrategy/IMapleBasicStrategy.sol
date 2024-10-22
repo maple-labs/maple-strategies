@@ -13,7 +13,7 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
      *  @dev   The fees earned by the Strategy for the Maple Protocol.
      *  @param feeAmount The amount of fees sent to the Maple Treasury.
      */
-    event FeeWithdrawal(uint256 feeAmount);
+    event StrategyFeesCollected(uint256 feeAmount);
 
     /**
      *  @dev   The strategy contract has set the strategyFeeRate to `feeRate`.
@@ -39,15 +39,15 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
 
     /**
      *  @dev   Funds the MapleStrategy with the given pool.
-     *  @param assets Amount of the Pool assets to deploy into the strategy.
+     *  @param assetsIn Amount of the Pool assets to deploy into the strategy.
      */
-    function fundStrategy(uint256 assets) external;
+    function fundStrategy(uint256 assetsIn) external;
 
     /**
      *  @dev    Withdraws the given amount of assets from the strategy.
-     *  @param  assets Amount of assets to withdraw from the strategy.
+     *  @param  assetsOut Amount of assets to withdraw from the strategy.
      */
-    function withdrawFromStrategy(uint256 assets) external;
+    function withdrawFromStrategy(uint256 assetsOut) external;
 
     /**
      *  @dev    Sets the strategyFeeRate to the given fee rate.
