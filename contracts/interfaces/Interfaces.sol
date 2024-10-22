@@ -25,6 +25,8 @@ interface IERC20Like {
 
     function balanceOf(address account_) external view returns (uint256 balance_);
 
+    function transfer(address to, uint256 amount) external returns (bool);
+
 }
 
 interface IERC4626Like {

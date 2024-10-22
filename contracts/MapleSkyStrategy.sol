@@ -21,6 +21,8 @@ import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAbstractStrategy {
 
+    uint256 internal constant WAD = 1e18;
+
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
@@ -40,24 +42,41 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         uint256 usdsOut_ = IPSMLike(psm_).sellGem(address(this), assets_);
 
         // Deposit into sUSDS
-        uint256 shares_ = IERC4626Like(savingsUsds).deposit(usdsOut_, address(this));
+        IERC4626Like(savingsUsds).deposit(usdsOut_, address(this));
 
-        emit StrategyFunded(assets_, shares_, usdsOut_);
+        emit StrategyFunded(assets_);
+    }
+
+    function withdrawFromStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assets_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
+
+        // In this context, assets_ are the gems (pool's underlying) on psm.
+        uint256 requiredUsds_ = _usdsForGem(assets_);
+
+        IERC4626Like(savingsUsds).withdraw(requiredUsds_, address(this), address(this));
+
+        require(ERC20Helper.approve(usds, psm, requiredUsds_), "MSS:WFS:APPROVE_FAIL");
+
+        // There might be some USDS left over in this contract due to rounding.
+        IPSMLike(psm).buyGem(address(this), assets_);
+
+        // Send the asset to the pool
+        require(ERC20Helper.transfer(fundsAsset, pool, assets_), "MSS:WFS:TRANSFER_FAILED");
+
+        emit StrategyWithdrawal(assets_);
     }
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
     /**************************************************************************************************************************************/
 
-    function assetsUnderManagement() external view virtual override returns (uint256) {
-        // TODO: CONSIDER PSM FEES
-        return IERC4626Like(savingsUsds).convertToAssets(IERC20Like(savingsUsds).balanceOf(address(this)));
+    function assetsUnderManagement() public view virtual override returns (uint256) {
+        return _gemForUsds(IERC4626Like(savingsUsds).convertToAssets(IERC20Like(savingsUsds).balanceOf(address(this))));
     }
 
     /**************************************************************************************************************************************/
     /*** Internal Functions                                                                                                             ***/
     /**************************************************************************************************************************************/
-
 
     function _prepareFundsForStrategy(address destination_, uint256 amount_) internal {
         // Request funds from Pool Manager.
@@ -73,6 +92,22 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
     function _locked() internal view override returns (uint256) {
         return locked;
+    }
+
+    function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
+        uint256 tout                 = IPSMLike(psm).tout();
+        uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
+
+        // Inverse of `_usdsForGem(gemAmount_)`
+        gemAmount_ = (usdsAmount_ * WAD) / (to18ConversionFactor * (WAD + tout));
+    }
+
+    function _usdsForGem(uint256 gemAmount_) internal view returns (uint256 usdsAmount_) {
+        uint256 tout                 = IPSMLike(psm).tout();
+        uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
+
+        // Inverse of `_gemForUsds(usdsAmount_)`
+        usdsAmount_ = (gemAmount_  * to18ConversionFactor * (WAD + tout)) / WAD;
     }
 
     /**************************************************************************************************************************************/

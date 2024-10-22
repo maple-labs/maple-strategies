@@ -10,31 +10,40 @@ interface IMapleSkyStrategy is IMapleSkyStrategyStorage {
     /**************************************************************************************************************************************/
 
     /**
-     *  @dev   The strategy contract has exchanged `assets` for `shares` and are held by the strategy contract.
-     *  @param assets     The amount of assets deposited.
-     *  @param shares     The amount of shares minted for sUSDS.
-     *  @param usdsAmount The total amount of USDS obtained from the PSM.
+     *  @dev   Emitted when assets are deposited into the strategy.
+     *  @param assets Amount of assets deposited.
      */
-    event StrategyFunded(uint256 assets, uint256 shares, uint256 usdsAmount);
+    event StrategyFunded(uint256 assets);
+
+    /**
+     *  @dev   Emitted when assets are withdrawn from the strategy.
+     *  @param assets Amount of assets withdrawn.
+     */
+    event StrategyWithdrawal(uint256 assets);
 
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
 
     /**
-     *  @dev   Funds the MapleStrategy with the given pool.
-     *  @param assets Amount of the Pool assets to deploy into the strategy.
+     *  @dev   Deploys assets from the Maple pool into the strategy.
+     *  @param assets Amount of assets to deploy.
      */
     function fundStrategy(uint256 assets) external;
+
+    /**
+     *  @dev   Withdraw assets from the strategy back into the Maple pool.
+     *  @param assets Amount of assets to withdraw.
+     */
+    function withdrawFromStrategy(uint256 assets) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
     /**************************************************************************************************************************************/
-
+   
     /**
-     *  @dev    Returns the assets under management.
-     *  @return assetsUnderManagement The assets under management.
+     *  @dev    Returns the total amount of assets under management.
+     *  @return assetsUnderManagement Total amount of assets managed.
      */
     function assetsUnderManagement() external view returns (uint256 assetsUnderManagement);
-
 }

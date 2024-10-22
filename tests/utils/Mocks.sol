@@ -233,7 +233,7 @@ contract MockPSM {
     address public gem;
     address public usds;
 
-    uint256 public to18ConversionFactor = 1e18;
+    uint256 public to18ConversionFactor = 1e12;
     uint256 public tin;
     uint256 public tout;
 

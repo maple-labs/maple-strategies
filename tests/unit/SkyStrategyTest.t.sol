@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+import { console2 as console } from "forge-std/console2.sol";
+
+import { IMapleSkyStrategy } from "../../contracts/interfaces/skyStrategy/IMapleSkyStrategy.sol";
+
 import {
     IERC20Like,
     IERC4626Like,
+    IGlobalsLike,
     IPoolManagerLike,
     IPSMLike
 } from "../../contracts/interfaces/Interfaces.sol";
@@ -78,7 +83,7 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
     function test_fund_failReentrancy() external {
         vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
 
-        MapleSkyStrategyHarness(address(strategy)).setLocked(2);
+        MapleSkyStrategyHarness(address(strategy)).__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.fundStrategy(1e18);
@@ -110,12 +115,8 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
     function test_fund_successWithStrategyManager() external {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
-        uint256 sUsdsAmount = amount;
-        uint256 usdsAmount  = sUsdsAmount;  // Assume 1:1 exchange rate
-
-        // Expect StrategyFunded event
         vm.expectEmit();
-        emit StrategyFunded(amount, sUsdsAmount, usdsAmount);
+        emit StrategyFunded(amount);
 
         // Expect call to pool manager to request funds
         vm.expectCall(
@@ -145,12 +146,8 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
     }
 
     function test_fund_successWithPoolDelegate() external {
-        uint256 sUsdsAmount = amount;
-        uint256 usdsAmount  = sUsdsAmount;  // Assume 1:1 exchange rate
-
-        // Expect StrategyFunded event
         vm.expectEmit();
-        emit StrategyFunded(amount, sUsdsAmount, usdsAmount);
+        emit StrategyFunded(amount);
 
         // Expect call to pool manager to request funds
         vm.expectCall(
@@ -178,6 +175,138 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
 
         vm.startPrank(poolDelegate);
         strategy.fundStrategy(1e18);
+    }
+
+}
+
+contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
+
+    uint256 assets = 1e6;
+    uint256 shares = 1.02e18;
+
+    function setUp() public override {
+        super.setUp();
+
+        psm.__setTin(0.01e18);
+        psm.__setTout(0.02e18);
+
+        vault.__setExchangeRate(1);
+        vault.__setBalanceOf(address(strategy), shares);
+    }
+
+    function test_withdraw_failReentrancy() external {
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        MapleSkyStrategyHarness(address(strategy)).__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdraw_failsIfProtocolPaused() external {
+        vm.prank(governor);
+        globals.__setFunctionPaused(true);
+
+        vm.prank(strategyManager);
+        vm.expectRevert("MS:PAUSED");
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdrawFromStrategy_failIfLowAssets() external {
+        vm.expectRevert("MSS:WFS:LOW_ASSETS");
+        vm.prank(poolDelegate);
+        strategy.withdrawFromStrategy(assets + 1);
+    }
+
+    function test_withdraw_failsIfNotStrategyManager() external {
+        globals.__setIsInstanceOf(false);
+
+        vm.expectRevert("MS:NOT_MANAGER");
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdraw_transferFail() external {
+        asset.mint(address(strategy), assets);  // Mint funds asset to strategy
+        asset.burn(address(strategy), 1);
+
+        vm.expectRevert("MSS:WFS:TRANSFER_FAILED");
+        vm.prank(poolDelegate);
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdraw_successWithPoolDelegate() external {
+        asset.mint(address(strategy), assets);  // Mint funds asset to strategy
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC20Like.balanceOf, (address(strategy)))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (shares, address(strategy), address(strategy)))
+        );
+
+        vm.expectCall(
+            address(psm),
+            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
+        );
+
+        vm.expectCall(
+            address(asset),
+            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+        );
+
+        vm.prank(poolDelegate);
+        strategy.withdrawFromStrategy(assets);
+    }
+
+    function test_withdraw_successWithStrategyManager() external {
+        asset.mint(address(strategy), assets);  // Mint funds asset to strategy
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC20Like.balanceOf, (address(strategy)))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (shares, address(strategy), address(strategy)))
+        );
+
+        vm.expectCall(
+            address(psm),
+            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
+        );
+
+        vm.expectCall(
+            address(asset),
+            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assets);
     }
 
 }

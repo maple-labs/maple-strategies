@@ -27,7 +27,7 @@ contract MapleBasicStrategyHarness is MapleBasicStrategy {
 
 contract MapleSkyStrategyHarness is MapleSkyStrategy {
 
-    function setLocked(uint256 locked_) external {
+    function __setLocked(uint256 locked_) external {
         locked = locked_;
     }
 

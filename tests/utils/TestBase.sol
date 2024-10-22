@@ -50,9 +50,9 @@ contract TestBase is Test {
 
     function setUp() public virtual {
         // Create all mocks.
-        asset              = new MockERC20("Wrapped Ether", "WETH", 18);
+        asset              = new MockERC20("USDC", "USDC", 6);
         globals            = new MockGlobals(address(governor));
-        pool               = new MockPool("Maple Pool", "MP-WETH", 18, address(asset), poolDelegate);
+        pool               = new MockPool("Maple Pool", "MP-USDC", 6, address(asset), poolDelegate);
         poolManager        = new MockPoolManager(address(pool), poolDelegate, address(globals));
         poolManagerFactory = new MockFactory();
 
@@ -112,7 +112,8 @@ contract BasicStrategyTestBase is TestBase {
 
 contract SkyStrategyTestBase is TestBase {
 
-    event StrategyFunded(uint256 assets, uint256 shares, uint256 usdsAmount);
+    event StrategyFunded(uint256 assets);
+    event StrategyWithdrawal(uint256 assets);
 
     MapleSkyStrategy  strategy;
     MockPSM           psm;
