@@ -7,8 +7,20 @@ import { MapleSkyStrategy }   from "../../contracts/MapleSkyStrategy.sol";
 
 contract MapleBasicStrategyHarness is MapleBasicStrategy {
 
-    function setLocked(uint256 locked_) external {
+    function accrueFees(address strategyVault_) external {
+        _accrueFees(strategyVault_);
+    }
+
+    function __setLocked(uint256 locked_) external {
         locked = locked_;
+    }
+
+    function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {
+        lastRecordedTotalAssets = lastRecordedTotalAssets_;
+    }
+
+    function __setStrategyFeeRate(uint256 strategyFeeRate_) external {
+        strategyFeeRate = strategyFeeRate_;
     }
 
 }
@@ -26,5 +38,5 @@ contract MapleAaveStrategyHarness is MapleAaveStrategy {
     function __setLocked(uint256 locked_) external {
         locked = locked_;
     }
-    
+
 }

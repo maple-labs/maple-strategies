@@ -10,6 +10,12 @@ interface IMapleBasicStrategyStorage {
     function fundsAsset() external view returns (address fundsAsset);
 
     /**
+     *  @dev    Gets the last recorded total assets.
+     *  @return lastRecordedTotalAssets The last recorded total assets of the strategy.
+     */
+    function lastRecordedTotalAssets() external view returns (uint256 lastRecordedTotalAssets);
+
+    /**
      *  @dev    Returns the address of the pool contract.
      *  @return pool Address of the pool contract.
      */
@@ -20,6 +26,12 @@ interface IMapleBasicStrategyStorage {
      *  @return poolManager Address of the pool manager contract.
      */
     function poolManager() external view returns (address poolManager);
+
+    /**
+     *  @dev    Returns the strategy fee rate.
+     *  @return strategyFeeRate The strategy fee rate which denotes the proportion of the yield to take as fees.
+     */
+    function strategyFeeRate() external view returns (uint256 strategyFeeRate);
 
     /**
      *  @dev    Returns the address of the ERC4626 compliant Vault.

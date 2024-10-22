@@ -54,6 +54,7 @@ contract MockGlobals {
     address public governor;
     address public operationalAdmin;
     address public securityAdmin;
+    address public mapleTreasury;
 
     bool internal _canDeploy;
     bool internal _isFunctionPaused;
@@ -107,6 +108,10 @@ contract MockGlobals {
 
     function __setSecurityAdmin(address securityAdmin_) external {
         securityAdmin = securityAdmin_;
+    }
+
+    function __setMapleTreasury(address mapleTreasury_) external {
+        mapleTreasury = mapleTreasury_;
     }
 
 }

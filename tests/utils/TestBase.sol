@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import { console2 as console, Test } from "../../modules/forge-std/src/Test.sol";
 import { MockERC20 }                 from "../../modules/erc20/contracts/test/mocks/MockERC20.sol";
 
+import { IERC20Like, IERC4626Like } from "../../contracts/interfaces/Interfaces.sol";
+
 import { MapleStrategyFactory } from "../../contracts/proxy/MapleStrategyFactory.sol";
 
 import { MapleAaveStrategyInitializer }  from "../../contracts/proxy/aaveStrategy/MapleAaveStrategyInitializer.sol";
@@ -33,6 +35,7 @@ contract TestBase is Test {
     address internal poolDelegate     = makeAddr("poolDelegate");
     address internal securityAdmin    = makeAddr("securityAdmin");
     address internal strategyManager  = makeAddr("strategyManager");
+    address internal treasury         = makeAddr("treasury");
 
     address internal implementation;
     address internal initializer;
@@ -63,6 +66,7 @@ contract TestBase is Test {
         globals.__setIsInstanceOf(true);
         globals.__setOperationalAdmin(operationalAdmin);
         globals.__setSecurityAdmin(securityAdmin);
+        globals.__setMapleTreasury(treasury);
 
         factory = new MapleStrategyFactory(address(globals));
     }
@@ -70,6 +74,11 @@ contract TestBase is Test {
 }
 
 contract BasicStrategyTestBase is TestBase {
+
+    event FeeWithdrawal(uint256 feeAmount);
+    event StrategyFeeRateSet(uint256 feeRate);
+    event StrategyFunded(uint256 assets);
+    event StrategyWithdrawal(uint256 assets);
 
     MapleBasicStrategy internal strategy;
     MockVault          internal vault;
@@ -93,6 +102,10 @@ contract BasicStrategyTestBase is TestBase {
             salt_:      "SALT"
         }));
 
+    }
+
+    function currentTotalAssets() internal view returns (uint256) {
+        return IERC4626Like(address(vault)).convertToAssets(IERC20Like(address(vault)).balanceOf(address(strategy)));
     }
 
 }

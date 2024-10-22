@@ -15,11 +15,15 @@ import {
 import { BasicStrategyTestBase }     from "../utils/TestBase.sol";
 import { MapleBasicStrategyHarness } from "../utils/Harnesses.sol";
 
-// TODO: Need to add AUM tests when fee logic added
 contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
+
+    MapleBasicStrategyHarness basicStrategy;
 
     function setUp() public override {
         super.setUp();
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
     }
 
     function test_asset() external view {
@@ -50,6 +54,10 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
         assertEq(strategy.securityAdmin(), address(securityAdmin));
     }
 
+    function test_treasury() external view {
+        assertEq(strategy.treasury(), treasury);
+    }
+
     function test_locked() external view {
         assertEq(strategy.locked(), 1);
     }
@@ -70,11 +78,66 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
         assertEq(strategy.strategyVault(), address(vault));
     }
 
+    function test_assetsUnderManagement_strategyNotFunded() external view {
+        assertEq(basicStrategy.assetsUnderManagement(), 0);
+    }
+
+    function test_assetsUnderManagement_strategyFundedAndZeroFee() external {
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+
+        vault.__setBalanceOf(address(basicStrategy), 1e18);
+        vault.__setExchangeRate(1);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (1e18))
+        );
+
+        assertEq(basicStrategy.assetsUnderManagement(), 1e18);
+    }
+
+    function test_assetsUnderManagement_strategyFundedWithFeeAndLoss() external {
+        basicStrategy.__setLastRecordedTotalAssets(2e18);
+        basicStrategy.__setStrategyFeeRate(1500);  // 15 basis points
+
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 2e18);
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+
+        vault.__setBalanceOf(address(basicStrategy), 1e18);
+        vault.__setExchangeRate(1);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (1e18))
+        );
+
+        assertEq(basicStrategy.assetsUnderManagement(), 1e18);
+    }
+
+    function test_assetsUnderManagement_strategyFundedWithFeeAndTotalAssetsIncreased() external {
+        basicStrategy.__setLastRecordedTotalAssets(2e18);
+        basicStrategy.__setStrategyFeeRate(1500);  // 15 basis points
+
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 2e18);
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+
+        vault.__setBalanceOf(address(basicStrategy), 5e18);
+        vault.__setExchangeRate(1);
+
+        uint256 strategyFee = ((5e18 - 2e18) * 1500) / 1e6;
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (5e18))
+        );
+
+        assertEq(basicStrategy.assetsUnderManagement(), 5e18 - strategyFee);
+    }
+
 }
 
 contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
-
-    event StrategyFunded(uint256 assets, uint256 shares);
 
     function setUp() public override {
         super.setUp();
@@ -83,7 +146,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
     function test_fund_failReentrancy() external {
         vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
 
-        MapleBasicStrategyHarness(address(strategy)).setLocked(2);
+        MapleBasicStrategyHarness(address(strategy)).__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.fundStrategy(1e18);
@@ -113,7 +176,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
     function test_fund_successWithPoolDelegate() external {
         vm.expectEmit();
-        emit StrategyFunded(1e18, 1e18);
+        emit StrategyFunded(1e18);
 
         vm.expectCall(
             address(poolManager),
@@ -139,7 +202,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
         vm.expectEmit();
-        emit StrategyFunded(1e18, 1e18);
+        emit StrategyFunded(1e18);
 
         vm.expectCall(
             address(poolManager),
@@ -164,8 +227,6 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
 contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
-    event StrategyWithdrawal(uint256 assets, uint256 shares);
-
     uint256 assets = 1e18;
 
     function setUp() public override {
@@ -178,7 +239,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
     function test_withdrawFromStrategy_failReentrancy() external {
         vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
 
-        MapleBasicStrategyHarness(address(strategy)).setLocked(2);
+        MapleBasicStrategyHarness(address(strategy)).__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.withdrawFromStrategy(assets);
@@ -205,8 +266,11 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
     }
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
+        vault.__setBalanceOf(address(strategy), 1e18);
+        vault.__setExchangeRate(1);
+
         vm.expectEmit();
-        emit StrategyWithdrawal(assets, assets);
+        emit StrategyWithdrawal(assets);
 
         vm.expectCall(
             address(globals),
@@ -240,8 +304,11 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
     function test_withdrawFromStrategy_successWithStrategyManager() external {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
 
+        vault.__setBalanceOf(address(strategy), 1e18);
+        vault.__setExchangeRate(1);
+
         vm.expectEmit();
-        emit StrategyWithdrawal(assets, assets);
+        emit StrategyWithdrawal(assets);
 
         vm.expectCall(
             address(globals),
@@ -270,6 +337,300 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.prank(strategyManager);
         strategy.withdrawFromStrategy(assets);
+    }
+
+}
+
+contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
+
+    MapleBasicStrategyHarness basicStrategy;
+
+    function setUp() public override {
+        super.setUp();
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
+
+        basicStrategy.__setStrategyFeeRate(1500);  // 15 basis points
+    }
+
+    function test_accrueFees_zeroStrategyFeeRateAndNoChangeInTotalAssets() external {
+        basicStrategy.__setStrategyFeeRate(0);
+
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (0))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_accrueFees_totalAssetsDecreased() external {
+        basicStrategy.__setLastRecordedTotalAssets(1e18);
+
+        assertEq(currentTotalAssets(),                    0);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (0))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+        assertEq(currentTotalAssets(),                    0);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_accrueFees_zeroStrategyFeeRate_totalAssetsUnchanged() external {
+        basicStrategy.__setLastRecordedTotalAssets(1e18);
+        basicStrategy.__setStrategyFeeRate(0);
+
+        vault.__setBalanceOf(address(basicStrategy), 1e18);
+        vault.__setExchangeRate(1);
+
+        assertEq(currentTotalAssets(),                    1e18);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (1e18))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+        assertEq(currentTotalAssets(),                    1e18);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+    }
+
+    function test_accrueFees_zeroStrategyFeeRate_totalAssetsIncreased() external {
+        basicStrategy.__setStrategyFeeRate(0);
+
+        vault.__setBalanceOf(address(basicStrategy), 1e18);
+        vault.__setExchangeRate(1);
+
+        assertEq(currentTotalAssets(),                    1e18);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (1e18))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+        assertEq(currentTotalAssets(),                    1e18);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+    }
+
+    function test_accrueFees_strategyFeeRoundedDown() external {
+        basicStrategy.__setLastRecordedTotalAssets(100);
+
+        vault.__setBalanceOf(address(basicStrategy), 101);
+        vault.__setExchangeRate(1);
+
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 100);
+        assertEq(currentTotalAssets(),                    101);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (101))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 101);
+    }
+
+    function test_accrueFees_strategyFeeOneHundredPercent() external {
+        basicStrategy.__setLastRecordedTotalAssets(100);
+        basicStrategy.__setStrategyFeeRate(1e6);
+
+        vault.__setBalanceOf(address(basicStrategy), 101);
+        vault.__setExchangeRate(1);
+
+        assertEq(basicStrategy.strategyFeeRate(),         1e6);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 100);
+        assertEq(currentTotalAssets(),                    101);
+
+        vm.expectEmit();
+        emit FeeWithdrawal(1);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (101))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (1, treasury, address(basicStrategy)))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 100);
+    }
+
+    function test_accrueFees_totalAssetsIncreased() external {
+        basicStrategy.__setLastRecordedTotalAssets(1e18);
+
+        vault.__setBalanceOf(address(basicStrategy), 3e18);
+        vault.__setExchangeRate(1);
+
+        assertEq(currentTotalAssets(),                    3e18);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+
+        uint256 strategyFee = ((3e18 - 1e18) * 1500) / 1e6;
+
+        vm.expectEmit();
+        emit FeeWithdrawal(strategyFee);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (3e18))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (strategyFee, treasury, address(basicStrategy)))
+        );
+
+        basicStrategy.accrueFees(address(vault));
+
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 3e18 - strategyFee);
+    }
+
+}
+
+contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
+
+    uint256 public constant HUNDRED_PERCENT = 1e6;  // 100.0000%
+
+    MapleBasicStrategyHarness basicStrategy;
+
+    function setUp() public override {
+        super.setUp();
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
+    }
+
+    function test_setStrategyFeeRate_failReentrancy() external {
+        basicStrategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.setStrategyFeeRate(1500);
+    }
+
+    function test_setStrategyFeeRate_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.setStrategyFeeRate(1500);
+    }
+
+    function test_setStrategyFeeRate_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.setStrategyFeeRate(1500);
+
+        vm.prank(poolDelegate);
+        strategy.setStrategyFeeRate(1500);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(1500);
+
+        vm.prank(operationalAdmin);
+        strategy.setStrategyFeeRate(1500);
+    }
+
+    function test_setStrategyFeeRate_failInvalidStrategyFeeRate() external {
+        vm.expectRevert("MBS:SSFR:INVALID_STRATEGY_FEE_RATE");
+        vm.prank(poolDelegate);
+        strategy.setStrategyFeeRate(HUNDRED_PERCENT + 1);
+    }
+
+    function test_setStrategyFeeRate_zeroPriorFeeRateAndTotalAssets() external {
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(1500);
+
+        vm.prank(poolDelegate);
+        basicStrategy.setStrategyFeeRate(1500);
+
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_setStrategyFeeRate_zeroPriorFeeRate_totalAssetsIncreased() external {
+        // Equivalent of a fundStrategy call prior to a fee being set.
+        vault.__setBalanceOf(address(basicStrategy), 1e18);
+        vault.__setExchangeRate(1);
+
+        assertEq(basicStrategy.strategyFeeRate(),         0);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
+        assertEq(currentTotalAssets(),                    1e18);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(1500);
+
+        vm.prank(poolDelegate);
+        basicStrategy.setStrategyFeeRate(1500);
+
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+    }
+
+    function test_setStrategyFeeRate_nonZeroPriorFeeRate_totalAssetsIncreased() external {
+        basicStrategy.__setStrategyFeeRate(1000);
+        basicStrategy.__setLastRecordedTotalAssets(1e18);
+
+        vault.__setBalanceOf(address(basicStrategy), 3e18);
+        vault.__setExchangeRate(1);
+
+        assertEq(basicStrategy.strategyFeeRate(),         1000);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e18);
+        assertEq(currentTotalAssets(),                    3e18);
+
+        uint256 strategyFee = ((3e18 - 1e18) * 1000) / 1e6;
+
+        vm.expectEmit();
+        emit FeeWithdrawal(strategyFee);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(1500);
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (3e18))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (strategyFee, treasury, address(basicStrategy)))
+        );
+
+        vm.prank(poolDelegate);
+        basicStrategy.setStrategyFeeRate(1500);
+
+        assertEq(basicStrategy.strategyFeeRate(),         1500);
+        assertEq(basicStrategy.lastRecordedTotalAssets(), 3e18 - strategyFee);
     }
 
 }

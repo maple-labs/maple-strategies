@@ -61,6 +61,8 @@ interface IGlobalsLike {
         bytes calldata callData_
     ) external view returns (bool isValid_);
 
+    function mapleTreasury() external view returns (address mapleTreasury_);
+
     function operationalAdmin() external view returns (address operationalAdmin_);
 
     function securityAdmin() external view returns (address securityAdmin_);

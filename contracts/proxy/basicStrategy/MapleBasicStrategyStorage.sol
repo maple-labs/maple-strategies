@@ -16,4 +16,7 @@ contract MapleBasicStrategyStorage is IMapleBasicStrategyStorage {
     address public override poolManager;
     address public override strategyVault;
 
+    uint256 public override lastRecordedTotalAssets;
+    uint256 public override strategyFeeRate;
+
 }
