@@ -10,6 +10,12 @@ interface IMapleSkyStrategyStorage {
     function fundsAsset() external view returns (address fundsAsset);
 
     /**
+     *  @dev    Gets the last recorded total assets.
+     *  @return lastRecordedTotalAssets The last recorded total assets of the strategy.
+     */
+    function lastRecordedTotalAssets() external view returns (uint256 lastRecordedTotalAssets);
+
+    /**
      *  @dev    Returns the address of the pool contract.
      *  @return pool Address of the pool contract.
      */
@@ -32,6 +38,13 @@ interface IMapleSkyStrategyStorage {
      *  @return savingsUsds Address of the savings USDS contract.
      */
     function savingsUsds() external view returns (address savingsUsds);
+
+    /**
+     *  @dev    Returns the strategy fee rate.
+     *  @return strategyFeeRate The strategy fee rate which denotes the proportion of the yield to take as fees.
+     */
+    function strategyFeeRate() external view returns (uint256 strategyFeeRate);
+
 
     /**
      *  @dev    Returns the address of the USDS contract.

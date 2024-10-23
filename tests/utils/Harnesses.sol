@@ -27,8 +27,21 @@ contract MapleBasicStrategyHarness is MapleBasicStrategy {
 
 contract MapleSkyStrategyHarness is MapleSkyStrategy {
 
+    function __accrueFees() external {
+        _accrueFees(savingsUsds);
+    }
+
+
     function __setLocked(uint256 locked_) external {
         locked = locked_;
+    }
+
+    function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {
+        lastRecordedTotalAssets = lastRecordedTotalAssets_;
+    }
+
+    function __setStrategyFeeRate(uint256 strategyFeeRate_) external {
+        strategyFeeRate = strategyFeeRate_;
     }
 
 }

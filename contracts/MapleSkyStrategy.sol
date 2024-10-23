@@ -19,71 +19,141 @@ import { MapleSkyStrategyStorage } from "./proxy/skyStrategy/MapleSkyStrategySto
 
 import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
+// TODO: Consider infinite approvals
 contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAbstractStrategy {
 
     uint256 internal constant WAD = 1e18;
+
+    uint256 public override constant HUNDRED_PERCENT = 1e6;  // 100.0000%
 
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
 
-    // TODO: Should we pass a min amount of shares we expect and validate
-    // TODO: consider fees.
-    function fundStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
         address globals_ = globals();
         address psm_     = psm;
 
         require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", savingsUsds), "MSS:FS:INVALID_STRATEGY_VAULT");
         require(IGlobalsLike(globals_).isInstanceOf("PSM", psm_),                   "MSS:FS:INVALID_PSM");
 
-        _prepareFundsForStrategy(psm_, assets_);
+        _accrueFees(savingsUsds);
+
+        lastRecordedTotalAssets += assetsIn_;
+
+        _prepareFundsForStrategy(psm_, assetsIn_);
 
         // NOTE: Assume Gem asset and USDS are interchangeable 1:1 for the purposes of Pool Accounting
-        uint256 usdsOut_ = IPSMLike(psm_).sellGem(address(this), assets_);
+        uint256 usdsOut_ = IPSMLike(psm_).sellGem(address(this), assetsIn_);
 
         // Deposit into sUSDS
         IERC4626Like(savingsUsds).deposit(usdsOut_, address(this));
 
-        emit StrategyFunded(assets_);
+        emit StrategyFunded(assetsIn_);
     }
 
-    function withdrawFromStrategy(uint256 assets_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        require(assets_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
+    function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assetsOut_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
 
-        // In this context, assets_ are the gems (pool's underlying) on psm.
-        uint256 requiredUsds_ = _usdsForGem(assets_);
+        address strategyVault_ = savingsUsds;
 
-        IERC4626Like(savingsUsds).withdraw(requiredUsds_, address(this), address(this));
+        _accrueFees(strategyVault_);
 
-        require(ERC20Helper.approve(usds, psm, requiredUsds_), "MSS:WFS:APPROVE_FAIL");
+        lastRecordedTotalAssets -= assetsOut_;
 
-        // There might be some USDS left over in this contract due to rounding.
-        IPSMLike(psm).buyGem(address(this), assets_);
+        _withdraw(strategyVault_, assetsOut_, pool);
 
-        // Send the asset to the pool
-        require(ERC20Helper.transfer(fundsAsset, pool, assets_), "MSS:WFS:TRANSFER_FAILED");
+        emit StrategyWithdrawal(assetsOut_);
+    }
 
-        emit StrategyWithdrawal(assets_);
+    function setStrategyFeeRate(uint256 strategyFeeRate_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_STRATEGY_FEE_RATE");
+
+        address strategyVault_ = savingsUsds;
+
+        // Account for any fees before changing the fee rate
+        _accrueFees(strategyVault_);
+
+        strategyFeeRate = strategyFeeRate_;
+
+        emit StrategyFeeRateSet(strategyFeeRate_);
     }
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
     /**************************************************************************************************************************************/
 
-    function assetsUnderManagement() public view virtual override returns (uint256) {
-        return _gemForUsds(IERC4626Like(savingsUsds).convertToAssets(IERC20Like(savingsUsds).balanceOf(address(this))));
+    function assetsUnderManagement() public view override returns (uint256 assetsUnderManagement_) {
+        uint256 currentTotalAssets_ = _currentTotalAssets();
+        uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
+
+        // TODO: Confirm we we need to account for this first case.
+        currentTotalAssets_ <= currentAccruedFees_
+            ? assetsUnderManagement_ = 0
+            : assetsUnderManagement_ = currentTotalAssets_ - currentAccruedFees_;
     }
 
     /**************************************************************************************************************************************/
     /*** Internal Functions                                                                                                             ***/
     /**************************************************************************************************************************************/
 
+    function _accrueFees(address strategyVault_) internal {
+        uint256 currentTotalAssets_ = _currentTotalAssets();
+
+        uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
+        uint256 strategyFeeRate_         = strategyFeeRate;
+
+        // No fees to accrue if TotalAssets has decreased or fee rate is zero.
+        if (currentTotalAssets_ <= lastRecordedTotalAssets_ || strategyFeeRate_ == 0) {
+            // Record currentTotalAssets
+            lastRecordedTotalAssets = currentTotalAssets_;
+            return;
+        }
+
+        // Yield accrued since last collection.
+        // Can't underflow due to check above.
+        uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
+
+        // Calculate strategy fee.
+        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate < HUNDRED_PERCENT`.
+        uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate / HUNDRED_PERCENT;
+
+        // Withdraw the fees from the strategy vault.
+        if (strategyFee_ != 0) {
+            _withdraw(strategyVault_, strategyFee_, treasury());
+
+            emit StrategyFeesCollected(strategyFee_);
+        }
+
+        // Record the TotalAssets
+        // Can't underflow as `strategyFee_` is <= `currentTotalAssets_`.
+        lastRecordedTotalAssets = currentTotalAssets_ - strategyFee_;
+    }
+
+    function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
+        uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
+        uint256 strategyFeeRate_         = strategyFeeRate;
+
+        // No fees to accrue if TotalAssets has decreased or fee rate is zero.
+        if (currentTotalAssets_ <= lastRecordedTotalAssets_ || strategyFeeRate_ == 0) {
+            return 0;
+        }
+
+        // Yield accrued since last collection.
+        // Can't underflow due to check above.
+        uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
+
+        // Calculate strategy fee.
+        // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate < HUNDRED_PERCENT`.
+        currentAccruedFees_ = yieldAccrued_ * strategyFeeRate / HUNDRED_PERCENT;
+    }
+
     function _prepareFundsForStrategy(address destination_, uint256 amount_) internal {
         // Request funds from Pool Manager.
         IPoolManagerLike(poolManager).requestFunds(address(this), amount_);
 
         // Approve the strategy to use these funds.
-        require(ERC20Helper.approve(fundsAsset, destination_, amount_), "MBS:PFFS:APPROVE_FAILED");
+        require(ERC20Helper.approve(fundsAsset, destination_, amount_), "MSS:PFFS:APPROVE_FAILED");
     }
 
     function _setLock(uint256 lock_) internal override {
@@ -108,6 +178,24 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
         // Inverse of `_gemForUsds(usdsAmount_)`
         usdsAmount_ = (gemAmount_  * to18ConversionFactor * (WAD + tout)) / WAD;
+    }
+
+    function _currentTotalAssets() internal view returns (uint256) {
+        return _gemForUsds(IERC4626Like(savingsUsds).convertToAssets(IERC20Like(savingsUsds).balanceOf(address(this))));
+    }
+
+    function _withdraw(address strategyVault_, uint256 assets_, address destination_) internal {
+        uint256 requiredUsds_ = _usdsForGem(assets_);
+        
+        IERC4626Like(strategyVault_).withdraw(requiredUsds_, address(this), address(this));
+
+        require(ERC20Helper.approve(usds, psm, requiredUsds_), "MSS:WFS:APPROVE_FAIL");
+
+        // There might be some USDS left over in this contract due to rounding.
+        IPSMLike(psm).buyGem(address(this), assets_);
+
+        // Send the asset to the pool
+        require(ERC20Helper.transfer(fundsAsset, destination_, assets_), "MSS:WFS:TRANSFER_FAILED");
     }
 
     /**************************************************************************************************************************************/
@@ -136,6 +224,10 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
     function securityAdmin() public view override returns (address securityAdmin_) {
         securityAdmin_ = IGlobalsLike(globals()).securityAdmin();
+    }
+
+    function treasury() public view override returns (address treasury_) {
+        treasury_ = IGlobalsLike(globals()).mapleTreasury();
     }
 
 }

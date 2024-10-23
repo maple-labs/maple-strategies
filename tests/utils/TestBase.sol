@@ -112,8 +112,13 @@ contract BasicStrategyTestBase is TestBase {
 
 contract SkyStrategyTestBase is TestBase {
 
+    event StrategyFeesCollected(uint256 feeAmount);
+    event StrategyFeeRateSet(uint256 feeRate);
     event StrategyFunded(uint256 assets);
     event StrategyWithdrawal(uint256 assets);
+
+    uint256 internal tin  = 0.01e18;
+    uint256 internal tout = 0.02e18;
 
     MapleSkyStrategy  strategy;
     MockPSM           psm;
@@ -137,12 +142,33 @@ contract SkyStrategyTestBase is TestBase {
 
         psm.__setUsds(address(usds));
         psm.__setGem(address(asset));
+        psm.__setTin(tin);
+        psm.__setTout(tout);
 
         //Create the strategy instance.
         strategy = MapleSkyStrategy(factory.createInstance({
             arguments_: abi.encode(address(pool), address(vault), address(psm)),
             salt_:      "SALT"
         }));
+    }
+
+    function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
+        uint256 tout_ = MockPSM(psm).tout();
+        uint256 to18ConversionFactor_ = MockPSM(psm).to18ConversionFactor();
+
+        // Inverse of the previous calculation
+        gemAmount_ = (usdsAmount_ * 1e18) / (to18ConversionFactor_ * (1e18 + tout_));
+    }
+
+    function _usdsForGem(uint256 gemAmount_) internal view returns (uint256 usdsAmount_) {
+        uint256 tout_ = MockPSM(psm).tout();
+        uint256 to18ConversionFactor_ = MockPSM(psm).to18ConversionFactor();
+
+        usdsAmount_ = (gemAmount_  * to18ConversionFactor_ * (1e18 + tout_)) / 1e18;
+    }
+
+    function currentTotalAssets() internal view returns (uint256) {
+        return _gemForUsds(IERC4626Like(address(vault)).convertToAssets(IERC20Like(address(vault)).balanceOf(address(strategy))));
     }
 
 }

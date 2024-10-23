@@ -10,17 +10,29 @@ interface IMapleSkyStrategy is IMapleSkyStrategyStorage {
     /**************************************************************************************************************************************/
 
     /**
-     *  @dev   Emitted when assets are deposited into the strategy.
-     *  @param assets Amount of assets deposited.
+     *  @dev   The fees earned by the Strategy for the Maple Protocol.
+     *  @param feeAmount The amount of fees sent to the Maple Treasury.
+     */
+    event StrategyFeesCollected(uint256 feeAmount);
+
+    /**
+     *  @dev   The strategy contract has set the strategyFeeRate to `feeRate`.
+     *  @param feeRate The strategy fee rate set.
+     */
+    event StrategyFeeRateSet(uint256 feeRate);
+
+    /**
+     *  @dev   The strategy contract has exchanged `assets` for `shares` and are held by the strategy contract.
+     *  @param assets The amount of assets deposited.
      */
     event StrategyFunded(uint256 assets);
 
     /**
-     *  @dev   Emitted when assets are withdrawn from the strategy.
-     *  @param assets Amount of assets withdrawn.
+     *  @dev   The strategy contract has withdrawn shares for `assets` into the Pool.
+     *  @param assets The amount of assets withdrawn.
      */
     event StrategyWithdrawal(uint256 assets);
-
+    
     /**************************************************************************************************************************************/
     /*** Strategy External Functions                                                                                                    ***/
     /**************************************************************************************************************************************/
@@ -37,6 +49,12 @@ interface IMapleSkyStrategy is IMapleSkyStrategyStorage {
      */
     function withdrawFromStrategy(uint256 assets) external;
 
+    /**
+     *  @dev    Sets the strategyFeeRate to the given fee rate.
+     *  @param  strategyFeeRate_ The new strategy fee rate.
+     */
+    function setStrategyFeeRate(uint256 strategyFeeRate_) external;
+
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
     /**************************************************************************************************************************************/
@@ -46,4 +64,16 @@ interface IMapleSkyStrategy is IMapleSkyStrategyStorage {
      *  @return assetsUnderManagement Total amount of assets managed.
      */
     function assetsUnderManagement() external view returns (uint256 assetsUnderManagement);
+
+    /**
+     *  @dev    Returns the value considered as the hundred percent.
+     *  @return hundredPercent_ The value considered as the hundred percent.
+     */
+    function HUNDRED_PERCENT() external returns (uint256 hundredPercent_);
+
+    /**
+     *  @dev    Return the address of the Maple Treasury.
+     *  @return treasury The Maple Treasury Address.
+     */
+    function treasury() external view returns (address treasury);
 }

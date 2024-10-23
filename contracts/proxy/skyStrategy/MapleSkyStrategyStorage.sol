@@ -18,4 +18,6 @@ contract MapleSkyStrategyStorage is IMapleSkyStrategyStorage {
     address public override savingsUsds;
     address public override usds;
 
+    uint256 public override lastRecordedTotalAssets;
+    uint256 public override strategyFeeRate;
 }
