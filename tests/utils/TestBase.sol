@@ -12,9 +12,10 @@ import { MapleAaveStrategyInitializer }  from "../../contracts/proxy/aaveStrateg
 import { MapleBasicStrategyInitializer } from "../../contracts/proxy/basicStrategy/MapleBasicStrategyInitializer.sol";
 import { MapleSkyStrategyInitializer }   from "../../contracts/proxy/skyStrategy/MapleSkyStrategyInitializer.sol";
 
-import { MapleAaveStrategy }  from "../../contracts/MapleAaveStrategy.sol";
 import { MapleBasicStrategy } from "../../contracts/MapleBasicStrategy.sol";
 import { MapleSkyStrategy }   from "../../contracts/MapleSkyStrategy.sol";
+
+import { MapleAaveStrategyHarness } from "./Harnesses.sol";
 
 import {
     MockAavePool,
@@ -50,7 +51,7 @@ contract TestBase is Test {
 
     function setUp() public virtual {
         // Create all mocks.
-        asset              = new MockERC20("USDC", "USDC", 6);
+        asset              = new MockERC20("USD Coin", "USDC", 6);
         globals            = new MockGlobals(address(governor));
         pool               = new MockPool("Maple Pool", "MP-USDC", 6, address(asset), poolDelegate);
         poolManager        = new MockPoolManager(address(pool), poolDelegate, address(globals));
@@ -175,15 +176,20 @@ contract SkyStrategyTestBase is TestBase {
 
 contract AaveStrategyTestBase is TestBase {
 
+    event StrategyFeesCollected(uint256 fees);
+    event StrategyFeeRateSet(uint256 feeRate);
+    event StrategyFunded(uint256 assets);
+    event StrategyWithdrawal(uint256 assets);
+
     MockAavePool   aavePool;
     MockAaveToken  aaveToken;
 
-    MapleAaveStrategy strategy;
+    MapleAaveStrategyHarness strategy;
 
     function setUp() public virtual override {
         super.setUp();
 
-        implementation = address(new MapleAaveStrategy());
+        implementation = address(new MapleAaveStrategyHarness());
         initializer    = address(new MapleAaveStrategyInitializer());
 
         aavePool  = new MockAavePool();
@@ -195,7 +201,7 @@ contract AaveStrategyTestBase is TestBase {
         vm.stopPrank();
 
         // Create the strategy instance.
-        strategy = MapleAaveStrategy(factory.createInstance({
+        strategy = MapleAaveStrategyHarness(factory.createInstance({
             arguments_: abi.encode(address(pool), address(aaveToken)),
             salt_:      "SALT"
         }));

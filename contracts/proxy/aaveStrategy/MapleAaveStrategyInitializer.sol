@@ -13,7 +13,6 @@ import {
 
 import { MapleAaveStrategyStorage } from "./MapleAaveStrategyStorage.sol";
 
-// TODO: Should we also validate the Aave token as an erroneous Aave token that returns a pool address could be used to bypass the Aave pool check?
 contract MapleAaveStrategyInitializer is IMapleAaveStrategyInitializer, MapleAaveStrategyStorage {
 
     fallback() external {
@@ -34,7 +33,7 @@ contract MapleAaveStrategyInitializer is IMapleAaveStrategyInitializer, MapleAav
 
         require(IGlobalsLike(globals_).isInstanceOf("POOL_MANAGER_FACTORY", factory_), "MASI:I:INVALID_PM_FACTORY");
         require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MASI:I:INVALID_PM");
-        require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", aavePool_),      "MASI:I:INVALID_STRATEGY");
+        require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", aaveToken_),     "MASI:I:INVALID_STRATEGY");
         require(IPoolLike(pool_).asset() == fundsAsset_,                               "MASI:I:INVALID_ASSET");
 
         aavePool    = aavePool_;

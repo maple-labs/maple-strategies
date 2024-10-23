@@ -22,6 +22,12 @@ interface IMapleAaveStrategyStorage {
     function fundsAsset() external view returns (address fundsAsset);
 
     /**
+     *  @dev    Returns the last recorded value of all assets managed by the strategy.
+     *  @return lastRecordedTotalAssets Last recorded value of all assets managed by the strategy.
+     */
+    function lastRecordedTotalAssets() external view returns (uint256 lastRecordedTotalAssets);
+
+    /**
      *  @dev    Returns the address of the underlying asset.
      *  @return pool Address of the Maple pool.
      */
@@ -32,5 +38,11 @@ interface IMapleAaveStrategyStorage {
      *  @return poolManager Address of the Maple pool manager.
      */
     function poolManager() external view returns (address poolManager);
+
+    /**
+     *  @dev    Returns the percentage of the strategy's yield collected by the Maple treasury.
+     *  @return strategyFeeRate Percentage of yield collected by the treasury.
+     */
+    function strategyFeeRate() external view returns (uint256 strategyFeeRate);
 
 }

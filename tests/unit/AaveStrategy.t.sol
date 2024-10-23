@@ -13,8 +13,7 @@ import {
     IPoolManagerLike
 } from "../../contracts/interfaces/Interfaces.sol";
 
-import { MapleAaveStrategyHarness } from "../utils/Harnesses.sol";
-import { AaveStrategyTestBase }     from "../utils/TestBase.sol";
+import { AaveStrategyTestBase } from "../utils/TestBase.sol";
 
 contract MapleAaveStrategyViewFunctionTests is AaveStrategyTestBase {
 
@@ -54,10 +53,6 @@ contract MapleAaveStrategyViewFunctionTests is AaveStrategyTestBase {
         assertEq(strategy.poolDelegate(), address(poolDelegate));
     }
 
-    function test_securityAdmin() external view {
-        assertEq(strategy.securityAdmin(), address(securityAdmin));
-    }
-
     function test_pool() external view {
         assertEq(strategy.pool(), address(pool));
     }
@@ -66,11 +61,43 @@ contract MapleAaveStrategyViewFunctionTests is AaveStrategyTestBase {
         assertEq(strategy.poolManager(), address(poolManager));
     }
 
+    function test_securityAdmin() external view {
+        assertEq(strategy.securityAdmin(), address(securityAdmin));
+    }
+
+    function test_treasury() external view {
+        assertEq(strategy.treasury(), address(treasury));
+    }
+
+}
+
+contract MapleAaveStrategyAssetsUnderManagementTests is AaveStrategyTestBase {
+
+    function testFuzz_assetsUnderManagement(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        aaveToken.__setCurrentTotalAssets(currentTotalAssets);
+        strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategy.__setStrategyFeeRate(strategyFeeRate);
+
+        uint256 AUM = currentTotalAssets;
+
+        if (currentTotalAssets > lastRecordedTotalAssets) {
+            AUM -= (currentTotalAssets - lastRecordedTotalAssets) * strategyFeeRate / 1e6;
+        }
+
+        assertEq(strategy.assetsUnderManagement(), AUM);
+    }
+
 }
 
 contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
-
-    event StrategyFunded(uint256 assets);
 
     uint256 assets = 1e18;
 
@@ -79,9 +106,7 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
     }
 
     function test_fund_failReentrancy() external {
-        vm.etch(address(strategy), address(new MapleAaveStrategyHarness()).code);
-
-        MapleAaveStrategyHarness(address(strategy)).__setLocked(2);
+        strategy.__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.fundStrategy(assets);
@@ -105,7 +130,7 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
         globals.__setIsInstanceOf(false);
 
         vm.prank(poolDelegate);
-        vm.expectRevert("MAS:FS:INVALID_AAVE_POOL");
+        vm.expectRevert("MAS:FS:INVALID_AAVE_TOKEN");
         strategy.fundStrategy(assets);
     }
 
@@ -159,20 +184,16 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
 
 contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
-    event StrategyWithdrawal(uint256 assets);
-
     uint256 assets = 1e18;
 
     function setUp() public override {
         super.setUp();
 
-        aaveToken.__setBalanceOf(address(strategy), assets);
+        aaveToken.__setCurrentTotalAssets(assets);
     }
 
     function test_withdrawFromStrategy_failReentrancy() external {
-        vm.etch(address(strategy), address(new MapleAaveStrategyHarness()).code);
-
-        MapleAaveStrategyHarness(address(strategy)).__setLocked(2);
+        strategy.__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.withdrawFromStrategy(assets);
@@ -247,6 +268,369 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.prank(strategyManager);
         strategy.withdrawFromStrategy(assets);
+    }
+
+}
+
+contract MapleAaveStrategySetStrategyFeeRateTests is AaveStrategyTestBase {
+
+    uint256 balance    = 8_500_000e6;
+    uint256 gain       = 16_301e6;
+    uint256 loss       = 14_125e6;
+    uint256 newFeeRate = 420;
+    uint256 oldFeeRate = 1337;
+
+    function test_setStrategyFeeRate_failReentrancy() external {
+        strategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_failWhenNotAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_failWhenInvalidStrategyFeeRate() external {
+        vm.expectRevert("MAS:SSFR:INVALID_FEE_RATE");
+        vm.prank(poolDelegate);
+        strategy.setStrategyFeeRate(1e6 + 1);
+    }
+
+    function test_setStrategyFeeRate_successWithPoolDelegate() external {
+        vm.prank(poolDelegate);
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_successWithGovernor() external {
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_successWithOperationalAdmin() external {
+        vm.prank(operationalAdmin);
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_unfundedStrategy_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(0);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_unfundedStrategy_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(0);
+        strategy.__setStrategyFeeRate(oldFeeRate);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_normalGain_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + gain);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_normalGain_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(oldFeeRate);
+
+        vm.expectEmit();
+        emit StrategyFeesCollected(gain * oldFeeRate / 1e6);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + gain * (1e6 - oldFeeRate) / 1e6);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_normalGain_1e6() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(1e6);
+
+        vm.expectEmit();
+        emit StrategyFeesCollected(gain);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_normalLoss_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance - loss);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance - loss);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_normalLoss_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance - loss);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(oldFeeRate);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance - loss);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_totalLoss_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_totalLoss_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.expectEmit();
+        emit StrategyFeeRateSet(newFeeRate);
+
+        vm.prank(governor);
+        strategy.setStrategyFeeRate(newFeeRate);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+        assertEq(strategy.strategyFeeRate(),         newFeeRate);
+    }
+
+}
+
+contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
+
+    uint256 balance = 8_500_000e6;
+    uint256 feeRate = 1337;
+    uint256 gain    = 16_301e6;
+    uint256 loss    = 14_125e6;
+
+    function test_accrueFees_unfundedStrategy_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(0);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_accrueFees_unfundedStrategy_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(0);
+        strategy.__setStrategyFeeRate(feeRate);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_accrueFees_minimumGain_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + 1);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + 1);
+    }
+
+    function test_accrueFees_minimumGain_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + 1);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(feeRate);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + 1);
+    }
+
+    function test_accrueFees_normalGain_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + gain);
+    }
+
+    function test_accrueFees_normalGain_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(feeRate);
+
+        vm.expectEmit();
+        emit StrategyFeesCollected(gain * feeRate / 1e6);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + gain * (1e6 - feeRate) / 1e6);
+    }
+
+    function test_accrueFees_normalGain_minimumFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(1);
+
+        vm.expectEmit();
+        emit StrategyFeesCollected(gain / 1e6);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance + gain * (1e6 - 1) / 1e6);
+    }
+
+    function test_accrueFees_normalGain_maximumFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance + gain);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(1e6);
+
+        vm.expectEmit();
+        emit StrategyFeesCollected(gain);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance);
+    }
+
+    function test_accrueFees_minimumLoss_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance - 1);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance - 1);
+    }
+
+    function test_accrueFees_minimumLoss_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance - 1);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(feeRate);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance - 1);
+    }
+
+    function test_accrueFees_normalLoss_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance - loss);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance - loss);
+    }
+
+    function test_accrueFees_normalLoss_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(balance - loss);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(feeRate);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), balance - loss);
+    }
+
+    function test_accrueFees_totalLoss_zeroFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(0);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_accrueFees_totalLoss_realisticFeeRate() external {
+        aaveToken.__setCurrentTotalAssets(0);
+        strategy.__setLastRecordedTotalAssets(balance);
+        strategy.__setStrategyFeeRate(feeRate);
+
+        vm.prank(governor);
+        strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
     }
 
 }

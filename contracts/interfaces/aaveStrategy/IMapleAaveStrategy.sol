@@ -10,6 +10,18 @@ interface IMapleAaveStrategy is IMapleAaveStrategyStorage {
     /**************************************************************************************************************************************/
 
     /**
+     *  @dev   Emitted when the yield fees of the strategy are collected.
+     *  @param fees Amount of assets collected by the treasury.
+     */
+    event StrategyFeesCollected(uint256 fees);
+
+    /**
+     *  @dev   Emitted when the fee rate of the strategy is updated.
+     *  @param feeRate Percentage of yield that accrues to the treasury.
+     */
+    event StrategyFeeRateSet(uint256 feeRate);
+
+    /**
      *  @dev   Emitted when assets are deposited into the strategy.
      *  @param assets Amount of assets deposited.
      */
@@ -36,6 +48,12 @@ interface IMapleAaveStrategy is IMapleAaveStrategyStorage {
      *  @param assets Amount of assets to withdraw.
      */
     function withdrawFromStrategy(uint256 assets) external;
+
+    /**
+     *  @dev   Updates the fee rate of the strategy.
+     *  @param feeRate Percentage of yield that accrues to the Maple treasury.
+     */
+    function setStrategyFeeRate(uint256 feeRate) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/

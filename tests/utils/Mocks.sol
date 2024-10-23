@@ -23,10 +23,14 @@ contract MockAaveToken {
     address public POOL;
     address public UNDERLYING_ASSET_ADDRESS;
 
-    mapping(address account => uint256 balance) public balanceOf;
+    uint256 internal currentTotalAssets;
 
-    function __setBalanceOf(address account_, uint256 amount_) external {
-        balanceOf[account_] = amount_;
+    function balanceOf(address) external view returns (uint256 balanceOf_) {
+        balanceOf_ = currentTotalAssets;
+    }
+
+    function __setCurrentTotalAssets(uint256 currentTotalAssets_) external {
+        currentTotalAssets = currentTotalAssets_;
     }
 
     function __setUnderlyingAsset(address underlyingAsset_) external {
@@ -100,7 +104,6 @@ contract MockGlobals {
     function __setIsValidScheduledCall(bool isValid_) external {
         _isValidScheduledCall = isValid_;
     }
-
 
     function __setOperationalAdmin(address operationalAdmin_) external {
         operationalAdmin = operationalAdmin_;

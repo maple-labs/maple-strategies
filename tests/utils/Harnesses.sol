@@ -48,8 +48,20 @@ contract MapleSkyStrategyHarness is MapleSkyStrategy {
 
 contract MapleAaveStrategyHarness is MapleAaveStrategy {
 
+    function __accrueFees(address aavePool_, address aaveToken_, address fundsAsset_) external {
+        _accrueFees(aavePool_, aaveToken_, fundsAsset_);
+    }
+
+    function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {
+        lastRecordedTotalAssets = lastRecordedTotalAssets_;
+    }
+
     function __setLocked(uint256 locked_) external {
         locked = locked_;
+    }
+
+    function __setStrategyFeeRate(uint256 strategyFeeRate_) external {
+        strategyFeeRate = strategyFeeRate_;
     }
 
 }

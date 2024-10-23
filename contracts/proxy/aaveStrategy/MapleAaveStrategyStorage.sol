@@ -15,4 +15,7 @@ contract MapleAaveStrategyStorage is IMapleAaveStrategyStorage {
     address public override aavePool;
     address public override aaveToken;
 
+    uint256 public override lastRecordedTotalAssets;
+    uint256 public override strategyFeeRate;
+
 }
