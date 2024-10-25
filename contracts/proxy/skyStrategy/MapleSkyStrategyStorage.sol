@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import { IMapleSkyStrategyStorage } from "../../interfaces/skyStrategy/IMapleSkyStrategyStorage.sol";
 
+import { StrategyState } from "../../MapleAbstractStrategy.sol";
+
 contract MapleSkyStrategyStorage is IMapleSkyStrategyStorage {
 
     /**************************************************************************************************************************************/
@@ -20,4 +22,8 @@ contract MapleSkyStrategyStorage is IMapleSkyStrategyStorage {
 
     uint256 public override lastRecordedTotalAssets;
     uint256 public override strategyFeeRate;
+
+    // TODO: Add view function that makes the current state more obvious.
+    StrategyState public override strategyState;
+    
 }

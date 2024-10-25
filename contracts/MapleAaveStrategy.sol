@@ -15,8 +15,8 @@ import {
 
 import { MapleAaveStrategyStorage } from "./proxy/aaveStrategy/MapleAaveStrategyStorage.sol";
 
-import { MapleAaveStrategy }     from "./MapleAaveStrategy.sol";
-import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
+import { MapleAaveStrategy }                    from "./MapleAaveStrategy.sol";
+import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
 
 // TODO: Add impairment/default handling.
 // TODO: Add more state variable caching.
@@ -147,6 +147,10 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
 
     function _setLock(uint256 lock_) internal override {
         locked = lock_;
+    }
+
+    function _strategyState() internal view override returns (StrategyState) {
+        return strategyState;
     }
 
     /**************************************************************************************************************************************/

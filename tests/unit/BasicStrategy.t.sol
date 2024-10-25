@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
 import { IMapleBasicStrategy } from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategy.sol";
+import { StrategyState }       from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategyStorage.sol";
 
 import {
     IERC20Like,
@@ -24,6 +25,8 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
         vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
 
         basicStrategy = MapleBasicStrategyHarness(address(strategy));
+
+        vault.__setExchangeRate(1);
     }
 
     function test_asset() external view {
@@ -135,18 +138,148 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
         assertEq(basicStrategy.assetsUnderManagement(), 5e6 - strategyFee);
     }
 
+    function testFuzz_assetsUnderManagement_strategyActive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        basicStrategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        basicStrategy.__setStrategyFeeRate(strategyFeeRate);
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        uint256 yield = currentTotalAssets > lastRecordedTotalAssets ? currentTotalAssets - lastRecordedTotalAssets : 0;
+        uint256 fee   = yield * strategyFeeRate / 1e6;
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (currentTotalAssets))
+        );
+
+        assertEq(basicStrategy.assetsUnderManagement(), currentTotalAssets - fee);
+    }
+
+    function testFuzz_assetsUnderManagement_strategyImpaired(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        basicStrategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        basicStrategy.__setStrategyFeeRate(strategyFeeRate);
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        uint256 yield = currentTotalAssets > lastRecordedTotalAssets ? currentTotalAssets - lastRecordedTotalAssets : 0;
+        uint256 fee   = yield * strategyFeeRate / 1e6;
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (currentTotalAssets))
+        );
+
+        assertEq(basicStrategy.assetsUnderManagement(), currentTotalAssets - fee);
+    }
+
+    function testFuzz_assetsUnderManagement_strategyInactive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        basicStrategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        basicStrategy.__setStrategyFeeRate(strategyFeeRate);
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        assertEq(basicStrategy.assetsUnderManagement(), 0);
+    }
+
+    function testFuzz_unrealizedLosses_strategyActive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        basicStrategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        basicStrategy.__setStrategyFeeRate(strategyFeeRate);
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        assertEq(basicStrategy.unrealizedLosses(), 0);
+    }
+
+    function testFuzz_unrealizedLosses_strategyImpaired(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        basicStrategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        basicStrategy.__setStrategyFeeRate(strategyFeeRate);
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        uint256 yield = currentTotalAssets > lastRecordedTotalAssets ? currentTotalAssets - lastRecordedTotalAssets : 0;
+        uint256 fee   = yield * strategyFeeRate / 1e6;
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.convertToAssets, (currentTotalAssets))
+        );
+
+        assertEq(basicStrategy.unrealizedLosses(), currentTotalAssets - fee);
+    }
+
+    function testFuzz_unrealizedLosses_strategyInactive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        basicStrategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        basicStrategy.__setStrategyFeeRate(strategyFeeRate);
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        assertEq(basicStrategy.unrealizedLosses(), 0);
+    }
+
 }
 
 contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
+    MapleBasicStrategyHarness basicStrategy;
+
     function setUp() public override {
         super.setUp();
+
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
     }
 
     function test_fund_failReentrancy() external {
-        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
-
-        MapleBasicStrategyHarness(address(strategy)).__setLocked(2);
+        basicStrategy.__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
         strategy.fundStrategy(1e6);
@@ -163,6 +296,20 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
+        strategy.fundStrategy(1e6);
+    }
+
+    function test_fund_failIfInactive() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectRevert("MBS:NOT_ACTIVE");
+        strategy.fundStrategy(1e6);
+    }
+
+    function test_fund_failIfImpaired() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectRevert("MBS:NOT_ACTIVE");
         strategy.fundStrategy(1e6);
     }
 
@@ -227,12 +374,20 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
 contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
-    uint256 assets = 1e6;
+    uint256 assetsOut   = 1e6;
+    uint256 totalAssets = 100e6;
+
+    MapleBasicStrategyHarness basicStrategy;
 
     function setUp() public override {
         super.setUp();
 
-        vault.__setBalanceOf(address(strategy), assets);
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
+
+        basicStrategy.__setLastRecordedTotalAssets(totalAssets);
+        vault.__setBalanceOf(address(strategy), totalAssets);
         vault.__setExchangeRate(1);
     }
 
@@ -242,35 +397,34 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         MapleBasicStrategyHarness(address(strategy)).__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
     }
 
     function test_withdrawFromStrategy_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
     }
 
     function test_withdrawFromStrategy_failIfNotStrategyManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
     }
 
-    function test_withdrawFromStrategy_failLowAssets() external {
+    function test_withdrawFromStrategy_failIfLowAssets() external {
+        vault.__setBalanceOf(address(strategy), totalAssets);
+
+        vm.prank(strategyManager);
         vm.expectRevert("MBS:WFS:LOW_ASSETS");
-        vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(assets + 1);
+        strategy.withdrawFromStrategy(totalAssets + 1);
     }
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
-        vault.__setBalanceOf(address(strategy), 1e6);
-        vault.__setExchangeRate(1);
-
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assetsOut);
 
         vm.expectCall(
             address(globals),
@@ -289,26 +443,23 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (assets))
+            abi.encodeCall(IERC4626Like.convertToAssets, (totalAssets))
         );
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.withdraw, (assets, address(pool), address(strategy)))
+            abi.encodeCall(IERC4626Like.withdraw, (assetsOut, address(pool), address(strategy)))
         );
 
         vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
     }
 
     function test_withdrawFromStrategy_successWithStrategyManager() external {
-        assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
-
-        vault.__setBalanceOf(address(strategy), 1e6);
-        vault.__setExchangeRate(1);
-
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assetsOut);
 
         vm.expectCall(
             address(globals),
@@ -327,16 +478,72 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (assets))
+            abi.encodeCall(IERC4626Like.convertToAssets, (totalAssets))
         );
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.withdraw, (assets, address(pool), address(strategy)))
+            abi.encodeCall(IERC4626Like.withdraw, (assetsOut, address(pool), address(strategy)))
         );
 
         vm.prank(strategyManager);
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
+    }
+
+    function test_withdrawFromStrategy_successWhenImpaired() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assetsOut);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (assetsOut, address(pool), address(strategy)))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets);
+    }
+
+    function test_withdrawFromStrategy_successWhenInactive() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assetsOut);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (assetsOut, address(pool), address(strategy)))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets);
     }
 
 }
@@ -558,6 +765,22 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
         strategy.setStrategyFeeRate(1500);
     }
 
+    function test_setStrategyFeeRate_failIfInactive() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MBS:NOT_ACTIVE");
+        strategy.setStrategyFeeRate(1500);
+    }
+
+    function test_setStrategyFeeRate_failIfImpaired() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MBS:NOT_ACTIVE");
+        strategy.setStrategyFeeRate(1500);
+    }
+
     function test_setStrategyFeeRate_failInvalidStrategyFeeRate() external {
         vm.expectRevert("MBS:SSFR:INVALID_STRATEGY_FEE_RATE");
         vm.prank(poolDelegate);
@@ -631,6 +854,274 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
 
         assertEq(basicStrategy.strategyFeeRate(),         1500);
         assertEq(basicStrategy.lastRecordedTotalAssets(), 3e6 - strategyFee);
+    }
+
+}
+
+contract MapleBasicStrategyDeactivateStrategyTests is BasicStrategyTestBase {
+
+    MapleBasicStrategyHarness basicStrategy;
+
+    function setUp() public override {
+        super.setUp();
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
+    }
+
+    function test_deactivateStrategy_failReentrancy() external {
+        basicStrategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.deactivateStrategy();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(governor);
+        strategy.deactivateStrategy();
+
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(operationalAdmin);
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failIfAlreadyInactive() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MBS:DS:ALREADY_INACTIVE");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_successWhenActive() external {
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.expectEmit();
+        emit StrategyDeactivated();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Inactive));
+    }
+
+    function test_deactivateStrategy_successWhenImpaired() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyDeactivated();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Inactive));
+    }
+
+}
+
+contract MapleBasicStrategyImpairStrategyTests is BasicStrategyTestBase {
+
+    MapleBasicStrategyHarness basicStrategy;
+
+    function setUp() public override {
+        super.setUp();
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
+    }
+
+    function test_impairStrategy_failReentrancy() external {
+        basicStrategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.impairStrategy();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(governor);
+        strategy.impairStrategy();
+
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(operationalAdmin);
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failIfAlreadyImpaired() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MBS:IS:ALREADY_IMPAIRED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_successWhenActive() external {
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.expectEmit();
+        emit StrategyImpaired();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Impaired));
+    }
+
+    function test_impairStrategy_successWhenInactive() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyImpaired();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Impaired));
+    }
+
+}
+
+contract MapleBasicStrategyReactivateStrategyTests is BasicStrategyTestBase {
+
+    MapleBasicStrategyHarness basicStrategy;
+
+    uint256 currentVaultBalance  = 1337e6;
+    uint256 previousVaultBalance = 420e6;
+
+    function setUp() public override {
+        super.setUp();
+        vm.etch(address(strategy), address(new MapleBasicStrategyHarness()).code);
+
+        basicStrategy = MapleBasicStrategyHarness(address(strategy));
+
+        basicStrategy.__setLastRecordedTotalAssets(previousVaultBalance);
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vault.__setBalanceOf(address(basicStrategy), currentVaultBalance);
+        vault.__setExchangeRate(1);
+    }
+
+    function test_reactivateStrategy_failReentrancy() external {
+        basicStrategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.reactivateStrategy(false);
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(governor);
+        strategy.reactivateStrategy(false);
+
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(operationalAdmin);
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failIfAlreadyActive() external {
+        basicStrategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MBS:RS:ALREADY_ACTIVE");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_successWhenInactive_withoutAccountingUpdate() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        assertEq(strategy.lastRecordedTotalAssets(), previousVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenInactive_withAccountingUpdate() external {
+        basicStrategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(true);
+
+        assertEq(strategy.lastRecordedTotalAssets(), currentVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenImpaired_withoutAccountingUpdate() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        assertEq(strategy.lastRecordedTotalAssets(), previousVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenImpaired_withAccountingUpdate() external {
+        basicStrategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(true);
+
+        assertEq(strategy.lastRecordedTotalAssets(), currentVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
     }
 
 }

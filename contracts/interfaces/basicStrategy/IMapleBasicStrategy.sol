@@ -10,6 +10,11 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
     /**************************************************************************************************************************************/
 
     /**
+     *  @dev Emitted when the strategy is deactivated.
+     */
+    event StrategyDeactivated();
+
+    /**
      *  @dev   The fees earned by the Strategy for the Maple Protocol.
      *  @param feeAmount The amount of fees sent to the Maple Treasury.
      */
@@ -28,33 +33,66 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
     event StrategyFunded(uint256 assets);
 
     /**
+     *  @dev Emitted when the strategy is impaired.
+     */
+    event StrategyImpaired();
+
+    /**
+     *  @dev Emitted when the strategy is reactivated.
+     */
+    event StrategyReactivated();
+
+    /**
      *  @dev   The strategy contract has withdrawn shares for `assets` into the Pool.
      *  @param assets The amount of assets withdrawn.
      */
     event StrategyWithdrawal(uint256 assets);
 
     /**************************************************************************************************************************************/
-    /*** Strategy External Functions                                                                                                    ***/
+    /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
     /**
      *  @dev   Funds the MapleStrategy with the given pool.
+     *         Funding can be attempted if the strategy is active.
      *  @param assetsIn Amount of the Pool assets to deploy into the strategy.
      */
     function fundStrategy(uint256 assetsIn) external;
 
     /**
      *  @dev    Withdraws the given amount of assets from the strategy.
+     *          Withdrawals can be attempted even if the strategy is impaired or inactive.
      *  @param  assetsOut Amount of assets to withdraw from the strategy.
      */
     function withdrawFromStrategy(uint256 assetsOut) external;
 
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev Disables funding and marks all assets under management as zero.
+     */
+    function deactivateStrategy() external;
+
+    /**
+     *  @dev Disables funding and marks all assets under management as unrealized losses.
+     */
+    function impairStrategy() external;
+
+    /**
+     *  @dev   Resumes normal operation of the strategy.
+     *  @param updateAccounting Flag that defines if fee accounting should be refreshed.
+     */
+    function reactivateStrategy(bool updateAccounting) external;
+
     /**
      *  @dev    Sets the strategyFeeRate to the given fee rate.
      *          Adjust for 1e6 which is equal to 100.0000% (e.g 1500 = 0.15%)
-     *  @param  strategyFeeRate_ The new strategy fee rate.
+     *          The Strategy Fee can only be set when the strategy is active.
+     *  @param  strategyFeeRate The new strategy fee rate.
      */
-    function setStrategyFeeRate(uint256 strategyFeeRate_) external;
+    function setStrategyFeeRate(uint256 strategyFeeRate) external;
 
     /**************************************************************************************************************************************/
     /*** Strategy View Functions                                                                                                        ***/
@@ -65,6 +103,12 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
      *  @return assetsUnderManagement The amount of assets under the management of the Strategy.
      */
     function assetsUnderManagement() external view returns (uint256 assetsUnderManagement);
+
+    /**
+     *  @dev    Returns the current amount of unrealized losses.
+     *  @return unrealizedLosses Amount of assets marked as unrealized losses.
+     */
+    function unrealizedLosses() external view returns (uint256 unrealizedLosses);
 
     /**************************************************************************************************************************************/
     /*** View Functions                                                                                                                 ***/

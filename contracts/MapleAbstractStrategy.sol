@@ -13,12 +13,25 @@ import {
     IPoolManagerLike
 } from "./interfaces/Interfaces.sol";
 
+// TODO: Add NatSpec
+enum StrategyState {
+    Active,
+    Impaired,
+    Inactive
+}
+
 // @dev This is the base contract for all Maple strategies to inherit from.
 abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals {
 
     /**************************************************************************************************************************************/
     /*** Modifiers                                                                                                                      ***/
     /**************************************************************************************************************************************/
+
+    modifier onlyActive() {
+        require(_strategyState() == StrategyState.Active, "MBS:NOT_ACTIVE");
+
+        _;
+    }
 
     modifier nonReentrant() {
         require(_locked() == 1, "MS:LOCKED");
@@ -107,5 +120,7 @@ abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals 
     function _setLock(uint256 lock_) internal virtual;
 
     function _locked() internal view virtual returns (uint256);
+
+    function _strategyState() internal view virtual returns (StrategyState);
 
 }

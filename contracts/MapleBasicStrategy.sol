@@ -16,7 +16,7 @@ import {
 
 import { MapleBasicStrategyStorage } from "./proxy/basicStrategy/MapleBasicStrategyStorage.sol";
 
-import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
+import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
 
 /*
     ███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
@@ -35,18 +35,17 @@ import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 */
 
-// TODO Ensure events are consistent across strategies
-contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , MapleAbstractStrategy {
+// TODO: Ensure events are consistent across strategies.
+// TODO: Add state variable caching.
+contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, MapleAbstractStrategy {
 
     uint256 public override constant HUNDRED_PERCENT = 1e6;  // 100.0000%
 
     /**************************************************************************************************************************************/
-    /*** Strategy External Functions                                                                                                    ***/
+    /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
-    // TODO: Validation before and after funding
-    // TODO: Should we pass a min amount of shares we expect and validate
-    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
         address strategyVault_ = strategyVault;
 
         require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBS:FS:INVALID_STRATEGY_VAULT");
@@ -62,29 +61,63 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
         emit StrategyFunded(assetsIn_);
     }
 
-    // TODO: Validation before and after funding
-    // TODO: Should we pass in the min amount of assets we expect and validate
     function withdrawFromStrategy(uint256 assetsOut_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        require(assetsOut_ <= assetsUnderManagement(), "MBS:WFS:LOW_ASSETS");
-
         address strategyVault_ = strategyVault;
 
-        _accrueFees(strategyVault_);
+        // Strategy only accrues fees when it is active.
+        if (_strategyState() == StrategyState.Active) {
+            require(assetsOut_ <= assetsUnderManagement(), "MBS:WFS:LOW_ASSETS");
 
-        lastRecordedTotalAssets -= assetsOut_;
+            _accrueFees(strategyVault_);
+
+            lastRecordedTotalAssets -= assetsOut_;
+        }
 
         IERC4626Like(strategyVault_).withdraw(assetsOut_, address(pool), address(this));
 
         emit StrategyWithdrawal(assetsOut_);
     }
 
-    function setStrategyFeeRate(uint256 strategyFeeRate_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    function deactivateStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Inactive, "MBS:DS:ALREADY_INACTIVE");
+
+        strategyState = StrategyState.Inactive;
+
+        emit StrategyDeactivated();
+    }
+
+    function impairStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Impaired, "MBS:IS:ALREADY_IMPAIRED");
+
+        strategyState = StrategyState.Impaired;
+
+        emit StrategyImpaired();
+    }
+
+    function reactivateStrategy(bool updateAccounting_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Active, "MBS:RS:ALREADY_ACTIVE");
+
+        // Updating the fee accounting will result in no fees being charged for the period of impairment and/or inactivity.
+        // Otherwise, fees will be charged retroactively as if no impairment and/or deactivation occurred.
+        if (updateAccounting_) {
+            lastRecordedTotalAssets = _currentTotalAssets(strategyVault);
+        }
+
+        strategyState = StrategyState.Active;
+
+        emit StrategyReactivated();
+    }
+
+    function setStrategyFeeRate(uint256 strategyFeeRate_)
+        external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins onlyActive
+    {
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MBS:SSFR:INVALID_STRATEGY_FEE_RATE");
 
-        address strategyVault_ = strategyVault;
-
-        // Account for any fees before changing the fee rate
-        _accrueFees(strategyVault_);
+        _accrueFees(strategyVault);
 
         strategyFeeRate = strategyFeeRate_;
 
@@ -96,14 +129,22 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     /**************************************************************************************************************************************/
 
     function assetsUnderManagement() public view override returns (uint256 assetsUnderManagement_) {
-        address strategyVault_      = strategyVault;
-        uint256 currentTotalAssets_ = IERC4626Like(strategyVault_).convertToAssets(IERC20Like(strategyVault_).balanceOf(address(this)));
+        // All assets are marked as zero if the strategy is inactive.
+        if (_strategyState() == StrategyState.Inactive) {
+            return 0;
+        }
+
+        uint256 currentTotalAssets_ = _currentTotalAssets(strategyVault);
         uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
 
-        // TODO: Confirm we we need to account for this first case.
-        currentTotalAssets_ <= currentAccruedFees_
-            ? assetsUnderManagement_ = 0
-            : assetsUnderManagement_ = currentTotalAssets_ - currentAccruedFees_;
+        // TODO: Confirm if we need to account for possible underflows.
+        assetsUnderManagement_ = currentTotalAssets_ > currentAccruedFees_ ? currentTotalAssets_ - currentAccruedFees_ : 0;
+    }
+
+    function unrealizedLosses() external view override returns (uint256 unrealizedLosses_) {
+        if (_strategyState() == StrategyState.Impaired) {
+            unrealizedLosses_ = assetsUnderManagement();
+        }
     }
 
     /**************************************************************************************************************************************/
@@ -111,8 +152,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
     /**************************************************************************************************************************************/
 
     function _accrueFees(address strategyVault_) internal {
-        uint256 currentTotalAssets_ = IERC4626Like(strategyVault_).convertToAssets(IERC20Like(strategyVault_).balanceOf(address(this)));
-
+        uint256 currentTotalAssets_      = _currentTotalAssets(strategyVault_);
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
         uint256 strategyFeeRate_         = strategyFeeRate;
 
@@ -161,11 +201,18 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate / HUNDRED_PERCENT;
     }
 
+    function _currentTotalAssets(address strategyVault_) internal view returns (uint256 currentTotalAssets_) {
+        uint256 currentTotalShares_ = IERC20Like(strategyVault_).balanceOf(address(this));
+
+        currentTotalAssets_ = IERC4626Like(strategyVault_).convertToAssets(currentTotalShares_);
+    }
+
     function _prepareFundsForStrategy(address destination_, uint256 amount_) internal {
         // Request funds from Pool Manager.
         IPoolManagerLike(poolManager).requestFunds(address(this), amount_);
 
         // Approve the strategy to use these funds.
+        // TODO: Remove after infinite approval is added.
         require(ERC20Helper.approve(fundsAsset, destination_, amount_), "MBS:PFFS:APPROVE_FAILED");
     }
 
@@ -175,6 +222,10 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage , 
 
     function _locked() internal view override returns (uint256) {
         return locked;
+    }
+
+    function _strategyState() internal view override returns (StrategyState) {
+        return strategyState;
     }
 
     /**************************************************************************************************************************************/

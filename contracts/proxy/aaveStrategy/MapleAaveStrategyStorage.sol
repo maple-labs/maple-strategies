@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import { IMapleAaveStrategyStorage } from "../../interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
 
+import { StrategyState } from "../../MapleAbstractStrategy.sol";
+
 contract MapleAaveStrategyStorage is IMapleAaveStrategyStorage {
 
     // Used for reentrancy checks.
@@ -17,5 +19,7 @@ contract MapleAaveStrategyStorage is IMapleAaveStrategyStorage {
 
     uint256 public override lastRecordedTotalAssets;
     uint256 public override strategyFeeRate;
+
+    StrategyState public override strategyState;
 
 }

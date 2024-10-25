@@ -76,9 +76,12 @@ contract TestBase is Test {
 
 contract BasicStrategyTestBase is TestBase {
 
+    event StrategyDeactivated();
     event StrategyFeesCollected(uint256 feeAmount);
     event StrategyFeeRateSet(uint256 feeRate);
     event StrategyFunded(uint256 assets);
+    event StrategyImpaired();
+    event StrategyReactivated();
     event StrategyWithdrawal(uint256 assets);
 
     MapleBasicStrategy internal strategy;

@@ -17,7 +17,7 @@ import { IMapleSkyStrategy } from "./interfaces/skyStrategy/IMapleSkyStrategy.so
 
 import { MapleSkyStrategyStorage } from "./proxy/skyStrategy/MapleSkyStrategyStorage.sol";
 
-import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
+import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
 
 // TODO: Consider infinite approvals
 contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAbstractStrategy {
@@ -164,6 +164,10 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         return locked;
     }
 
+    function _strategyState() internal view override returns (StrategyState) {
+        return strategyState;
+    }
+
     function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
         uint256 tout                 = IPSMLike(psm).tout();
         uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
@@ -186,7 +190,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
     function _withdraw(address strategyVault_, uint256 assets_, address destination_) internal {
         uint256 requiredUsds_ = _usdsForGem(assets_);
-        
+
         IERC4626Like(strategyVault_).withdraw(requiredUsds_, address(this), address(this));
 
         require(ERC20Helper.approve(usds, psm, requiredUsds_), "MSS:WFS:APPROVE_FAIL");

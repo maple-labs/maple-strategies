@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
+import { StrategyState } from "../../MapleAbstractStrategy.sol";
+
 interface IMapleAaveStrategyStorage {
 
     /**
@@ -40,9 +42,16 @@ interface IMapleAaveStrategyStorage {
     function poolManager() external view returns (address poolManager);
 
     /**
-     *  @dev    Returns the percentage of the strategy's yield collected by the Maple treasury.
-     *  @return strategyFeeRate Percentage of yield collected by the treasury.
-     */
+    *  @dev    Returns the percentage of the strategy's yield collected by the Maple treasury.
+    *  @return strategyFeeRate Percentage of yield collected by the treasury.
+    */
     function strategyFeeRate() external view returns (uint256 strategyFeeRate);
+
+    /**
+     *  @dev    Returns the current state of the strategy.
+     *          Can be active, inactive, or impaired.
+     *  @return strategyState Current state of the strategy.
+     */
+    function strategyState() external view returns (StrategyState strategyState);
 
 }
