@@ -29,12 +29,12 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
         vault.__setExchangeRate(1);
     }
 
-    function test_asset() external view {
-        assertEq(strategy.asset(), address(asset));
-    }
-
     function test_factory() external view {
         assertEq(strategy.factory(), address(factory));
+    }
+
+    function test_fundsAsset() external view {
+        assertEq(strategy.fundsAsset(), address(asset));
     }
 
     function test_globals() external view {
@@ -63,10 +63,6 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
     function test_locked() external view {
         assertEq(strategy.locked(), 1);
-    }
-
-    function test_fundsAsset() external view {
-        assertEq(strategy.fundsAsset(), address(asset));
     }
 
     function test_pool() external view {

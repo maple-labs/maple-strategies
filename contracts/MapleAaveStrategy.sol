@@ -232,7 +232,7 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         securityAdmin_ = IGlobalsLike(globals()).securityAdmin();
     }
 
-    function treasury() public view returns (address treasury_) {
+    function treasury() public view override returns (address treasury_) {
         treasury_ = IGlobalsLike(globals()).mapleTreasury();
     }
 

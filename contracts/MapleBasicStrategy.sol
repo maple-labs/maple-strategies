@@ -39,7 +39,7 @@ import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.so
 // TODO: Add state variable caching.
 contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, MapleAbstractStrategy {
 
-    uint256 public override constant HUNDRED_PERCENT = 1e6;  // 100.0000%
+    uint256 public constant HUNDRED_PERCENT = 1e6;  // 100.0000%
 
     /**************************************************************************************************************************************/
     /*** Strategy Manager Functions                                                                                                     ***/
@@ -231,10 +231,6 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     /**************************************************************************************************************************************/
     /*** View Functions                                                                                                                 ***/
     /**************************************************************************************************************************************/
-
-    function asset() public view override returns (address asset_) {
-        asset_ = fundsAsset;
-    }
 
     function factory() external view override returns (address factory_) {
         factory_ = _factory();

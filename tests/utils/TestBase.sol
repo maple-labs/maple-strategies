@@ -116,10 +116,13 @@ contract BasicStrategyTestBase is TestBase {
 
 contract SkyStrategyTestBase is TestBase {
 
-    event StrategyFeesCollected(uint256 feeAmount);
+    event StrategyDeactivated();
+    event StrategyFeesCollected(uint256 fee);
     event StrategyFeeRateSet(uint256 feeRate);
-    event StrategyFunded(uint256 assets);
-    event StrategyWithdrawal(uint256 assets);
+    event StrategyFunded(uint256 assetsIn);
+    event StrategyImpaired();
+    event StrategyReactivated();
+    event StrategyWithdrawal(uint256 assetsOut);
 
     uint256 internal tin  = 0.01e18;
     uint256 internal tout = 0.02e18;

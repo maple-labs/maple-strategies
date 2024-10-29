@@ -110,26 +110,4 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
      */
     function unrealizedLosses() external view returns (uint256 unrealizedLosses);
 
-    /**************************************************************************************************************************************/
-    /*** View Functions                                                                                                                 ***/
-    /**************************************************************************************************************************************/
-
-    /**
-     *  @dev   Returns the address of the underlying pool asset.
-     *  @param asset Address of the underlying pool asset.
-     */
-    function asset() external view returns (address asset);
-
-    /**
-     *  @dev    Returns the value considered as the hundred percent.
-     *  @return hundredPercent_ The value considered as the hundred percent.
-     */
-    function HUNDRED_PERCENT() external returns (uint256 hundredPercent_);
-
-    /**
-     *  @dev    Return the address of the Maple Treasury.
-     *  @return treasury The Maple Treasury Address.
-     */
-    function treasury() external view returns (address treasury);
-
 }

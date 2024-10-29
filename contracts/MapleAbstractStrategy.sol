@@ -113,6 +113,8 @@ abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals 
 
     function securityAdmin() public view virtual returns (address securityAdmin_);
 
+    function treasury() public view virtual returns (address treasury_);
+
     /**************************************************************************************************************************************/
     /*** Internal Functions                                                                                                             ***/
     /**************************************************************************************************************************************/

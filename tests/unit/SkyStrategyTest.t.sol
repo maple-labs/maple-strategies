@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import { console2 as console } from "forge-std/console2.sol";
-
 import { IMapleSkyStrategy } from "../../contracts/interfaces/skyStrategy/IMapleSkyStrategy.sol";
+import { StrategyState }     from "../../contracts/interfaces/skyStrategy/IMapleSkyStrategyStorage.sol";
 
 import {
     IERC20Like,
@@ -74,6 +73,10 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
     function test_savingsUsds() external view {
         assertEq(strategy.savingsUsds(), address(vault));
+    }
+
+    function test_strategyState() external view {
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Active));
     }
 
     function test_assetsUnderManagement_strategyNotFunded() external view {
@@ -252,6 +255,130 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
         assertEq(strategyHarness.assetsUnderManagement(), _gemForUsds(5e18) - strategyFee);
     }
 
+    function testFuzz_assetsUnderManagement_strategyActive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        vault.__setExchangeRate(1);
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyFeeRate(strategyFeeRate);
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        currentTotalAssets = _gemForUsds(currentTotalAssets);
+
+        uint256 yield = currentTotalAssets > lastRecordedTotalAssets ? currentTotalAssets - lastRecordedTotalAssets : 0;
+        uint256 fee   = yield * strategyFeeRate / 1e6;
+
+        assertEq(strategy.assetsUnderManagement(), currentTotalAssets - fee);
+    }
+
+    function testFuzz_assetsUnderManagement_strategyImpaired(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        vault.__setExchangeRate(1);
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyFeeRate(strategyFeeRate);
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        currentTotalAssets = _gemForUsds(currentTotalAssets);
+
+        uint256 yield = currentTotalAssets > lastRecordedTotalAssets ? currentTotalAssets - lastRecordedTotalAssets : 0;
+        uint256 fee   = yield * strategyFeeRate / 1e6;
+
+        assertEq(strategy.assetsUnderManagement(), currentTotalAssets - fee);
+    }
+
+    function testFuzz_assetsUnderManagement_strategyInactive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        vault.__setExchangeRate(1);
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyFeeRate(strategyFeeRate);
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        assertEq(strategy.assetsUnderManagement(), 0);
+    }
+
+    function testFuzz_unrealizedLosses_strategyActive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        vault.__setExchangeRate(1);
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyFeeRate(strategyFeeRate);
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        assertEq(strategy.unrealizedLosses(), 0);
+    }
+
+    function testFuzz_unrealizedLosses_strategyImpaired(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        vault.__setExchangeRate(1);
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyFeeRate(strategyFeeRate);
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        assertEq(strategy.unrealizedLosses(), strategy.assetsUnderManagement());
+    }
+
+    function testFuzz_unrealizedLosses_strategyInactive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        vault.__setBalanceOf(address(strategy), currentTotalAssets);
+        vault.__setExchangeRate(1);
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyFeeRate(strategyFeeRate);
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        assertEq(strategy.unrealizedLosses(), 0);
+    }
+
 }
 
 // TODO: Add Test to account for non-zero Tin Value
@@ -259,8 +386,14 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
 
     uint256 amount = 1e18;
 
+    MapleSkyStrategyHarness strategyHarness;
+
     function setUp() public override {
         super.setUp();
+
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        strategyHarness = MapleSkyStrategyHarness(address(strategy));
 
         psm.__setTin(0.01e18);
         psm.__setTout(0.02e18);
@@ -286,6 +419,20 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
+        strategy.fundStrategy(1e18);
+    }
+
+    function test_fund_failIfImpaired() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectRevert("MS:NOT_ACTIVE");
+        strategy.fundStrategy(1e18);
+    }
+
+    function test_fund_failIfInactive() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.fundStrategy(1e18);
     }
 
@@ -370,16 +517,24 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
     uint256 assets = 1e6;
     uint256 shares = 1.02e18;
 
+    MapleSkyStrategyHarness strategyHarness;
+
     function setUp() public override {
         super.setUp();
 
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        strategyHarness = MapleSkyStrategyHarness(address(strategy));
+
         psm.__setTin(0.01e18);
         psm.__setTout(0.02e18);
-    
+
         vault.__setExchangeRate(1);
         vault.__setBalanceOf(address(strategy), shares);
 
         asset.mint(address(strategy), assets); // Mint funds asset to strategy
+
+        strategyHarness.__setLastRecordedTotalAssets(assets);
     }
 
     function test_withdraw_failReentrancy() external {
@@ -453,6 +608,8 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.prank(poolDelegate);
         strategy.withdrawFromStrategy(assets);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
     }
 
     function test_withdraw_successWithStrategyManager() external {
@@ -491,6 +648,82 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.prank(strategyManager);
         strategy.withdrawFromStrategy(assets);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 0);
+    }
+
+    function test_withdraw_successWhenImpaired() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (shares, address(strategy), address(strategy)))
+        );
+
+        vm.expectCall(
+            address(psm),
+            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
+        );
+
+        vm.expectCall(
+            address(asset),
+            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assets);
+
+        assertEq(strategy.lastRecordedTotalAssets(), assets);
+    }
+
+    function test_withdraw_successWhenInactive() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assets);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
+        );
+
+        vm.expectCall(
+            address(vault),
+            abi.encodeCall(IERC4626Like.withdraw, (shares, address(strategy), address(strategy)))
+        );
+
+        vm.expectCall(
+            address(psm),
+            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
+        );
+
+        vm.expectCall(
+            address(asset),
+            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assets);
+
+        assertEq(strategy.lastRecordedTotalAssets(), assets);
     }
 
 }
@@ -589,7 +822,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
     function test_accrueFees_strategyFeeOneHundredPercent() external {
         strategyHarness.__setLastRecordedTotalAssets(1e6);
         strategyHarness.__setStrategyFeeRate(1e6);
- 
+
         vault.__setBalanceOf(address(strategyHarness), 1.1e18);
         vault.__setExchangeRate(1);
 
@@ -709,6 +942,22 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
         strategy.setStrategyFeeRate(1500);
 
         vm.prank(operationalAdmin);
+        strategy.setStrategyFeeRate(1500);
+    }
+
+    function test_setStrategyFeeRate_failIfImpaired() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MS:NOT_ACTIVE");
+        strategy.setStrategyFeeRate(1500);
+    }
+
+    function test_setStrategyFeeRate_failIfInactive() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.setStrategyFeeRate(1500);
     }
 
@@ -892,6 +1141,273 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
 
         assertEq(strategyHarness.strategyFeeRate(),         1500);
         assertEq(strategyHarness.lastRecordedTotalAssets(), _gemForUsds(3e18) - strategyFee);
+    }
+
+}
+
+contract MapleSkyStrategyDeactivateStrategyTests is SkyStrategyTestBase {
+
+    MapleSkyStrategyHarness strategyHarness;
+
+    function setUp() public override {
+        super.setUp();
+
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        strategyHarness = MapleSkyStrategyHarness(address(strategy));
+    }
+
+    function test_deactivateStrategy_failReentrancy() external {
+        strategyHarness.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.deactivateStrategy();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.prank(governor);
+        strategy.deactivateStrategy();
+
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.prank(operationalAdmin);
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failIfAlreadyInactive() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MSS:DS:ALREADY_INACTIVE");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_successWhenActive() external {
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.expectEmit();
+        emit StrategyDeactivated();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Inactive));
+    }
+
+    function test_deactivateStrategy_successWhenImpaired() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyDeactivated();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Inactive));
+    }
+
+}
+
+contract MapleSkyStrategyImpairStrategyTests is SkyStrategyTestBase {
+
+    MapleSkyStrategyHarness strategyHarness;
+
+    function setUp() public override {
+        super.setUp();
+
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        strategyHarness = MapleSkyStrategyHarness(address(strategy));
+    }
+
+    function test_impairStrategy_failReentrancy() external {
+        strategyHarness.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.impairStrategy();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.prank(governor);
+        strategy.impairStrategy();
+
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.prank(operationalAdmin);
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failIfAlreadyImpaired() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MSS:IS:ALREADY_IMPAIRED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_successWhenActive() external {
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.expectEmit();
+        emit StrategyImpaired();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Impaired));
+    }
+
+    function test_impairStrategy_successWhenInactive() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyImpaired();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Impaired));
+    }
+
+}
+
+contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
+
+    uint256 lastRecordedTotalAssets = 420e6;
+
+    MapleSkyStrategyHarness strategyHarness;
+
+    function setUp() public override {
+        super.setUp();
+
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        strategyHarness = MapleSkyStrategyHarness(address(strategy));
+
+        strategyHarness.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+    }
+
+    function test_reactivateStrategy_failReentrancy() external {
+        strategyHarness.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.reactivateStrategy(false);
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(governor);
+        strategy.reactivateStrategy(false);
+
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(operationalAdmin);
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failIfAlreadyActive() external {
+        strategyHarness.__setStrategyState(StrategyState.Active);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MSS:RS:ALREADY_ACTIVE");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_successWhenInactive_withoutAccountingUpdate() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        assertEq(strategy.lastRecordedTotalAssets(), lastRecordedTotalAssets);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenInactive_withAccountingUpdate() external {
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(true);
+
+        assertEq(strategy.lastRecordedTotalAssets(), currentTotalAssets());
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenImpaired_withoutAccountingUpdate() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        assertEq(strategy.lastRecordedTotalAssets(), lastRecordedTotalAssets);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenImpaired_withAccountingUpdate() external {
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(true);
+
+        assertEq(strategy.lastRecordedTotalAssets(), currentTotalAssets());
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
     }
 
 }

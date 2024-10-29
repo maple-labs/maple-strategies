@@ -24,13 +24,13 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
     uint256 internal constant WAD = 1e18;
 
-    uint256 public override constant HUNDRED_PERCENT = 1e6;  // 100.0000%
+    uint256 public constant HUNDRED_PERCENT = 1e6;  // 100.0000%
 
     /**************************************************************************************************************************************/
-    /*** Strategy External Functions                                                                                                    ***/
+    /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
-    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
         address globals_ = globals();
         address psm_     = psm;
 
@@ -53,26 +53,62 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        require(assetsOut_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
+        address savingsUsds_ = savingsUsds;
 
-        address strategyVault_ = savingsUsds;
+        if (_strategyState() == StrategyState.Active) {
+            require(assetsOut_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
 
-        _accrueFees(strategyVault_);
+            _accrueFees(savingsUsds_);
 
-        lastRecordedTotalAssets -= assetsOut_;
+            lastRecordedTotalAssets -= assetsOut_;
+        }
 
-        _withdraw(strategyVault_, assetsOut_, pool);
+        _withdraw(savingsUsds_, assetsOut_, pool);
 
         emit StrategyWithdrawal(assetsOut_);
     }
 
-    function setStrategyFeeRate(uint256 strategyFeeRate_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    function deactivateStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Inactive, "MSS:DS:ALREADY_INACTIVE");
+
+        strategyState = StrategyState.Inactive;
+
+        emit StrategyDeactivated();
+    }
+
+    function impairStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Impaired, "MSS:IS:ALREADY_IMPAIRED");
+
+        strategyState = StrategyState.Impaired;
+
+        emit StrategyImpaired();
+    }
+
+    function reactivateStrategy(bool updateAccounting_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Active, "MSS:RS:ALREADY_ACTIVE");
+
+        // Updating the fee accounting will result in no fees being charged for the period of impairment and/or inactivity.
+        // Otherwise, fees will be charged retroactively as if no impairment and/or deactivation occurred.
+        if (updateAccounting_) {
+            lastRecordedTotalAssets = _currentTotalAssets(savingsUsds);
+        }
+
+        strategyState = StrategyState.Active;
+
+        emit StrategyReactivated();
+    }
+
+    function setStrategyFeeRate(uint256 strategyFeeRate_)
+        external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins onlyActive
+    {
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_STRATEGY_FEE_RATE");
 
-        address strategyVault_ = savingsUsds;
-
         // Account for any fees before changing the fee rate
-        _accrueFees(strategyVault_);
+        _accrueFees(savingsUsds);
 
         strategyFeeRate = strategyFeeRate_;
 
@@ -84,7 +120,12 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     /**************************************************************************************************************************************/
 
     function assetsUnderManagement() public view override returns (uint256 assetsUnderManagement_) {
-        uint256 currentTotalAssets_ = _currentTotalAssets();
+        // All assets are marked as zero if the strategy is inactive.
+        if (_strategyState() == StrategyState.Inactive) {
+            return 0;
+        }
+
+        uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds);
         uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
 
         // TODO: Confirm we we need to account for this first case.
@@ -93,12 +134,18 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
             : assetsUnderManagement_ = currentTotalAssets_ - currentAccruedFees_;
     }
 
+    function unrealizedLosses() external view override returns (uint256 unrealizedLosses_) {
+        if (_strategyState() == StrategyState.Impaired) {
+            unrealizedLosses_ = assetsUnderManagement();
+        }
+    }
+
     /**************************************************************************************************************************************/
     /*** Internal Functions                                                                                                             ***/
     /**************************************************************************************************************************************/
 
-    function _accrueFees(address strategyVault_) internal {
-        uint256 currentTotalAssets_ = _currentTotalAssets();
+    function _accrueFees(address savingsUsds_) internal {
+        uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds_);
 
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
         uint256 strategyFeeRate_         = strategyFeeRate;
@@ -120,7 +167,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
         // Withdraw the fees from the strategy vault.
         if (strategyFee_ != 0) {
-            _withdraw(strategyVault_, strategyFee_, treasury());
+            _withdraw(savingsUsds_, strategyFee_, treasury());
 
             emit StrategyFeesCollected(strategyFee_);
         }
@@ -184,14 +231,14 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         usdsAmount_ = (gemAmount_  * to18ConversionFactor * (WAD + tout)) / WAD;
     }
 
-    function _currentTotalAssets() internal view returns (uint256) {
-        return _gemForUsds(IERC4626Like(savingsUsds).convertToAssets(IERC20Like(savingsUsds).balanceOf(address(this))));
+    function _currentTotalAssets(address savingsUsds_) internal view returns (uint256) {
+        return _gemForUsds(IERC4626Like(savingsUsds_).convertToAssets(IERC20Like(savingsUsds_).balanceOf(address(this))));
     }
 
-    function _withdraw(address strategyVault_, uint256 assets_, address destination_) internal {
+    function _withdraw(address savingsUsds_, uint256 assets_, address destination_) internal {
         uint256 requiredUsds_ = _usdsForGem(assets_);
 
-        IERC4626Like(strategyVault_).withdraw(requiredUsds_, address(this), address(this));
+        IERC4626Like(savingsUsds_).withdraw(requiredUsds_, address(this), address(this));
 
         require(ERC20Helper.approve(usds, psm, requiredUsds_), "MSS:WFS:APPROVE_FAIL");
 
