@@ -70,4 +70,8 @@ contract MapleAaveStrategyHarness is MapleAaveStrategy {
         strategyFeeRate = strategyFeeRate_;
     }
 
+    function __setStrategyState(StrategyState strategyState_) external {
+        strategyState = strategyState_;
+    }
+
 }

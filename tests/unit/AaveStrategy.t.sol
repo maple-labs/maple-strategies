@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
 import { IMapleAaveStrategy } from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategy.sol";
+import { StrategyState }      from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
 
 import {
     IAavePoolLike,
@@ -65,6 +66,10 @@ contract MapleAaveStrategyViewFunctionTests is AaveStrategyTestBase {
         assertEq(strategy.securityAdmin(), address(securityAdmin));
     }
 
+    function test_strategyState() external view {
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Active));
+    }
+
     function test_treasury() external view {
         assertEq(strategy.treasury(), address(treasury));
     }
@@ -73,7 +78,7 @@ contract MapleAaveStrategyViewFunctionTests is AaveStrategyTestBase {
 
 contract MapleAaveStrategyAssetsUnderManagementTests is AaveStrategyTestBase {
 
-    function testFuzz_assetsUnderManagement(
+    function testFuzz_assetsUnderManagement_strategyActive(
         uint256 currentTotalAssets,
         uint256 lastRecordedTotalAssets,
         uint256 strategyFeeRate
@@ -85,6 +90,7 @@ contract MapleAaveStrategyAssetsUnderManagementTests is AaveStrategyTestBase {
         aaveToken.__setCurrentTotalAssets(currentTotalAssets);
         strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
         strategy.__setStrategyFeeRate(strategyFeeRate);
+        strategy.__setStrategyState(StrategyState.Active);
 
         uint256 AUM = currentTotalAssets;
 
@@ -92,7 +98,112 @@ contract MapleAaveStrategyAssetsUnderManagementTests is AaveStrategyTestBase {
             AUM -= (currentTotalAssets - lastRecordedTotalAssets) * strategyFeeRate / 1e6;
         }
 
+        vm.expectCall(
+            address(aaveToken),
+            abi.encodeCall(IERC20Like.balanceOf, (address(strategy)))
+        );
+
         assertEq(strategy.assetsUnderManagement(), AUM);
+    }
+
+    function testFuzz_assetsUnderManagement_strategyImpaired(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        aaveToken.__setCurrentTotalAssets(currentTotalAssets);
+        strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategy.__setStrategyFeeRate(strategyFeeRate);
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        uint256 AUM = currentTotalAssets;
+
+        if (currentTotalAssets > lastRecordedTotalAssets) {
+            AUM -= (currentTotalAssets - lastRecordedTotalAssets) * strategyFeeRate / 1e6;
+        }
+
+        vm.expectCall(
+            address(aaveToken),
+            abi.encodeCall(IERC20Like.balanceOf, (address(strategy)))
+        );
+
+        assertEq(strategy.assetsUnderManagement(), AUM);
+    }
+
+    function testFuzz_assetsUnderManagement_strategyInactive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        aaveToken.__setCurrentTotalAssets(currentTotalAssets);
+        strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategy.__setStrategyFeeRate(strategyFeeRate);
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        assertEq(strategy.assetsUnderManagement(), 0);
+    }
+
+}
+
+contract MapleAaveStrategyUnrealizedLossesTests is AaveStrategyTestBase {
+
+    function testFuzz_unrealizedLosses_strategyActive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        aaveToken.__setCurrentTotalAssets(currentTotalAssets);
+        strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategy.__setStrategyFeeRate(strategyFeeRate);
+        strategy.__setStrategyState(StrategyState.Active);
+
+        assertEq(strategy.unrealizedLosses(), 0);
+    }
+
+    function testFuzz_unrealizedLosses_strategyImpaired(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        aaveToken.__setCurrentTotalAssets(currentTotalAssets);
+        strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategy.__setStrategyFeeRate(strategyFeeRate);
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        assertEq(strategy.unrealizedLosses(), strategy.assetsUnderManagement());
+    }
+
+    function testFuzz_unrealizedLosses_strategyInactive(
+        uint256 currentTotalAssets,
+        uint256 lastRecordedTotalAssets,
+        uint256 strategyFeeRate
+    ) external {
+        currentTotalAssets      = bound(currentTotalAssets,      0, 1e30);
+        lastRecordedTotalAssets = bound(lastRecordedTotalAssets, 0, 1e30);
+        strategyFeeRate         = bound(strategyFeeRate,         0, 1e6);
+
+        aaveToken.__setCurrentTotalAssets(currentTotalAssets);
+        strategy.__setLastRecordedTotalAssets(lastRecordedTotalAssets);
+        strategy.__setStrategyFeeRate(strategyFeeRate);
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        assertEq(strategy.unrealizedLosses(), 0);
     }
 
 }
@@ -123,6 +234,20 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
+        strategy.fundStrategy(assets);
+    }
+
+    function test_fund_failIfImpaired() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectRevert("MS:NOT_ACTIVE");
+        strategy.fundStrategy(assets);
+    }
+
+    function test_fund_failIfInactive() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.fundStrategy(assets);
     }
 
@@ -184,46 +309,48 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
 
 contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
-    uint256 assets = 1e18;
+    uint256 assetsOut   = 1e18;
+    uint256 totalAssets = 150e18;
 
     function setUp() public override {
         super.setUp();
 
-        aaveToken.__setCurrentTotalAssets(assets);
+        aaveToken.__setCurrentTotalAssets(totalAssets);
+        strategy.__setLastRecordedTotalAssets(totalAssets);
     }
 
     function test_withdrawFromStrategy_failReentrancy() external {
         strategy.__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
     }
 
     function test_withdrawFromStrategy_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
     }
 
     function test_withdrawFromStrategy_failIfNonManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
     }
 
     function test_withdrawFromStrategy_failIfLowAssets() external {
         vm.prank(poolDelegate);
         vm.expectRevert("MAS:WFS:LOW_ASSETS");
-        strategy.withdrawFromStrategy(assets + 1);
+        strategy.withdrawFromStrategy(totalAssets + 1);
     }
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assetsOut);
 
-        vm.expectCall(
+            vm.expectCall(
             address(globals),
             abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
         );
@@ -235,25 +362,22 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.expectCall(
             address(aavePool),
-            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assets, address(pool)))
+            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assetsOut, address(pool)))
         );
 
         vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
     }
 
     function test_withdrawFromStrategy_successWithStrategyManager() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assetsOut);
 
-        vm.expectCall(
+            vm.expectCall(
             address(globals),
             abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
-        );
-
-        vm.expectCall(
-            address(globals),
-            abi.encodeCall(IGlobalsLike.isInstanceOf, ("STRATEGY_MANAGER", strategyManager))
         );
 
         vm.expectCall(
@@ -263,11 +387,57 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.expectCall(
             address(aavePool),
-            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assets, address(pool)))
+            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assetsOut, address(pool)))
         );
 
         vm.prank(strategyManager);
-        strategy.withdrawFromStrategy(assets);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
+    }
+
+    function test_withdrawFromStrategy_successWhenImpaired() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assetsOut);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(aavePool),
+            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assetsOut, address(pool)))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets);
+    }
+
+    function test_withdrawFromStrategy_successWhenInactive() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyWithdrawal(assetsOut);
+
+        vm.expectCall(
+            address(globals),
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+        );
+
+        vm.expectCall(
+            address(aavePool),
+            abi.encodeCall(IAavePoolLike.withdraw, (address(asset), assetsOut, address(pool)))
+        );
+
+        vm.prank(strategyManager);
+        strategy.withdrawFromStrategy(assetsOut);
+
+        assertEq(strategy.lastRecordedTotalAssets(), totalAssets);
     }
 
 }
@@ -296,6 +466,22 @@ contract MapleAaveStrategySetStrategyFeeRateTests is AaveStrategyTestBase {
 
     function test_setStrategyFeeRate_failWhenNotAdmin() external {
         vm.expectRevert("MS:NOT_ADMIN");
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_failIfImpaired() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MS:NOT_ACTIVE");
+        strategy.setStrategyFeeRate(newFeeRate);
+    }
+
+    function test_setStrategyFeeRate_failIfInactive() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.setStrategyFeeRate(newFeeRate);
     }
 
@@ -631,6 +817,249 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
 
         assertEq(strategy.lastRecordedTotalAssets(), 0);
+    }
+
+}
+
+contract MapleAaveStrategyDeactivateStrategyTests is AaveStrategyTestBase {
+
+    function test_deactivateStrategy_failReentrancy() external {
+        strategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.deactivateStrategy();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(governor);
+        strategy.deactivateStrategy();
+
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(operationalAdmin);
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_failIfAlreadyInactive() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MAS:DS:ALREADY_INACTIVE");
+        strategy.deactivateStrategy();
+    }
+
+    function test_deactivateStrategy_successWhenActive() external {
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.expectEmit();
+        emit StrategyDeactivated();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Inactive));
+    }
+
+    function test_deactivateStrategy_successWhenImpaired() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyDeactivated();
+
+        vm.prank(poolDelegate);
+        strategy.deactivateStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Inactive));
+    }
+
+}
+
+contract MapleAaveStrategyImpairStrategyTests is AaveStrategyTestBase {
+
+    function test_impairStrategy_failReentrancy() external {
+        strategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.impairStrategy();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(governor);
+        strategy.impairStrategy();
+
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(operationalAdmin);
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_failIfAlreadyImpaired() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MAS:IS:ALREADY_IMPAIRED");
+        strategy.impairStrategy();
+    }
+
+    function test_impairStrategy_successWhenActive() external {
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.expectEmit();
+        emit StrategyImpaired();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Impaired));
+    }
+
+    function test_impairStrategy_successWhenInactive() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyImpaired();
+
+        vm.prank(poolDelegate);
+        strategy.impairStrategy();
+
+        assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Impaired));
+    }
+
+}
+
+contract MapleAaveStrategyReactivateStrategyTests is AaveStrategyTestBase {
+
+    uint256 currentVaultBalance  = 1337e18;
+    uint256 previousVaultBalance = 420e18;
+
+    function setUp() public override {
+        super.setUp();
+
+        aaveToken.__setCurrentTotalAssets(currentVaultBalance);
+        strategy.__setLastRecordedTotalAssets(previousVaultBalance);
+        strategy.__setStrategyState(StrategyState.Inactive);
+    }
+
+    function test_reactivateStrategy_failReentrancy() external {
+        strategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.reactivateStrategy(false);
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(governor);
+        strategy.reactivateStrategy(false);
+
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(operationalAdmin);
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_failIfAlreadyActive() external {
+        strategy.__setStrategyState(StrategyState.Active);
+
+        vm.prank(poolDelegate);
+        vm.expectRevert("MAS:RS:ALREADY_ACTIVE");
+        strategy.reactivateStrategy(false);
+    }
+
+    function test_reactivateStrategy_successWhenInactive_withoutAccountingUpdate() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        assertEq(strategy.lastRecordedTotalAssets(), previousVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenInactive_withAccountingUpdate() external {
+        strategy.__setStrategyState(StrategyState.Inactive);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(true);
+
+        assertEq(strategy.lastRecordedTotalAssets(), currentVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenImpaired_withoutAccountingUpdate() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(false);
+
+        assertEq(strategy.lastRecordedTotalAssets(), previousVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+    function test_reactivateStrategy_successWhenImpaired_withAccountingUpdate() external {
+        strategy.__setStrategyState(StrategyState.Impaired);
+
+        vm.expectEmit();
+        emit StrategyReactivated();
+
+        vm.prank(poolDelegate);
+        strategy.reactivateStrategy(true);
+
+        assertEq(strategy.lastRecordedTotalAssets(), currentVaultBalance);
+        assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
     }
 
 }

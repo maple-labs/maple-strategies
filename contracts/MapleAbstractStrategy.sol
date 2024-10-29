@@ -28,7 +28,7 @@ abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals 
     /**************************************************************************************************************************************/
 
     modifier onlyActive() {
-        require(_strategyState() == StrategyState.Active, "MBS:NOT_ACTIVE");
+        require(_strategyState() == StrategyState.Active, "MS:NOT_ACTIVE");
 
         _;
     }

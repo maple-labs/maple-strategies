@@ -168,8 +168,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
         // Calculate strategy fee.
-        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate < HUNDRED_PERCENT`.
-        uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate / HUNDRED_PERCENT;
+        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
+        uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
 
         // Withdraw the fees from the strategy vault.
         if (strategyFee_ != 0) {
@@ -197,8 +197,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
         // Calculate strategy fee.
-        // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate < HUNDRED_PERCENT`.
-        currentAccruedFees_ = yieldAccrued_ * strategyFeeRate / HUNDRED_PERCENT;
+        // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
+        currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
     }
 
     function _currentTotalAssets(address strategyVault_) internal view returns (uint256 currentTotalAssets_) {

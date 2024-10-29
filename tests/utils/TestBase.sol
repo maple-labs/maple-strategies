@@ -179,10 +179,13 @@ contract SkyStrategyTestBase is TestBase {
 
 contract AaveStrategyTestBase is TestBase {
 
-    event StrategyFeesCollected(uint256 fees);
+    event StrategyDeactivated();
+    event StrategyFeesCollected(uint256 fee);
     event StrategyFeeRateSet(uint256 feeRate);
-    event StrategyFunded(uint256 assets);
-    event StrategyWithdrawal(uint256 assets);
+    event StrategyFunded(uint256 assetsIn);
+    event StrategyImpaired();
+    event StrategyReactivated();
+    event StrategyWithdrawal(uint256 assetsOut);
 
     MockAavePool   aavePool;
     MockAaveToken  aaveToken;

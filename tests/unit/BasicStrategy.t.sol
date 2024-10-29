@@ -302,14 +302,14 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
     function test_fund_failIfInactive() external {
         basicStrategy.__setStrategyState(StrategyState.Inactive);
 
-        vm.expectRevert("MBS:NOT_ACTIVE");
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.fundStrategy(1e6);
     }
 
     function test_fund_failIfImpaired() external {
         basicStrategy.__setStrategyState(StrategyState.Impaired);
 
-        vm.expectRevert("MBS:NOT_ACTIVE");
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.fundStrategy(1e6);
     }
 
@@ -769,7 +769,7 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Inactive);
 
         vm.prank(poolDelegate);
-        vm.expectRevert("MBS:NOT_ACTIVE");
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.setStrategyFeeRate(1500);
     }
 
@@ -777,7 +777,7 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Impaired);
 
         vm.prank(poolDelegate);
-        vm.expectRevert("MBS:NOT_ACTIVE");
+        vm.expectRevert("MS:NOT_ACTIVE");
         strategy.setStrategyFeeRate(1500);
     }
 

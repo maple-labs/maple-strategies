@@ -54,7 +54,7 @@ interface IMapleBasicStrategy is IMapleBasicStrategyStorage {
 
     /**
      *  @dev   Funds the MapleStrategy with the given pool.
-     *         Funding can be attempted if the strategy is active.
+     *         Funding can only be performed when the strategy is active.
      *  @param assetsIn Amount of the Pool assets to deploy into the strategy.
      */
     function fundStrategy(uint256 assetsIn) external;

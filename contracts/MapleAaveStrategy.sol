@@ -18,17 +18,16 @@ import { MapleAaveStrategyStorage } from "./proxy/aaveStrategy/MapleAaveStrategy
 import { MapleAaveStrategy }                    from "./MapleAaveStrategy.sol";
 import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
 
-// TODO: Add impairment/default handling.
 // TODO: Add more state variable caching.
 contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAaveStrategyStorage {
 
     uint256 public constant HUNDRED_PERCENT = 1e6;
 
     /**************************************************************************************************************************************/
-    /*** Strategy External Functions                                                                                                    ***/
+    /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
-    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
         address aavePool_   = aavePool;
         address aaveToken_  = aaveToken;
         address fundsAsset_ = fundsAsset;
@@ -49,21 +48,60 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
-        require(assetsOut_ <= assetsUnderManagement(), "MAS:WFS:LOW_ASSETS");
-
         address aavePool_   = aavePool;
         address fundsAsset_ = fundsAsset;
 
-        _accrueFees(aavePool_, aaveToken, fundsAsset_);
+        // Strategy only accrues fees when it is active.
+        if (_strategyState() == StrategyState.Active) {
+            require(assetsOut_ <= assetsUnderManagement(), "MAS:WFS:LOW_ASSETS");
 
-        lastRecordedTotalAssets -= assetsOut_;
+            _accrueFees(aavePool_, aaveToken, fundsAsset_);
+
+            lastRecordedTotalAssets -= assetsOut_;
+        }
 
         IAavePoolLike(aavePool_).withdraw(fundsAsset_, assetsOut_, pool);
 
         emit StrategyWithdrawal(assetsOut_);
     }
 
-    function setStrategyFeeRate(uint256 strategyFeeRate_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    function deactivateStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Inactive, "MAS:DS:ALREADY_INACTIVE");
+
+        strategyState = StrategyState.Inactive;
+
+        emit StrategyDeactivated();
+    }
+
+    function impairStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Impaired, "MAS:IS:ALREADY_IMPAIRED");
+
+        strategyState = StrategyState.Impaired;
+
+        emit StrategyImpaired();
+    }
+
+    function reactivateStrategy(bool updateAccounting_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(_strategyState() != StrategyState.Active, "MAS:RS:ALREADY_ACTIVE");
+
+        // Updating the fee accounting will result in no fees being charged for the period of impairment and/or inactivity.
+        // Otherwise, fees will be charged retroactively as if no impairment and/or deactivation occurred.
+        if (updateAccounting_) {
+            lastRecordedTotalAssets = _currentTotalAssets(aaveToken);
+        }
+
+        strategyState = StrategyState.Active;
+
+        emit StrategyReactivated();
+    }
+
+    function setStrategyFeeRate(uint256 strategyFeeRate_)
+        external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins onlyActive
+    {
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MAS:SSFR:INVALID_FEE_RATE");
 
         _accrueFees(aavePool, aaveToken, fundsAsset);
@@ -78,13 +116,22 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     /**************************************************************************************************************************************/
 
     function assetsUnderManagement() public view override returns (uint256 assetsUnderManagement_) {
-        uint256 currentTotalAssets_ = IAaveTokenLike(aaveToken).balanceOf(address(this));
+        // All assets are marked as zero if the strategy is inactive.
+        if (_strategyState() == StrategyState.Inactive) {
+            return 0;
+        }
+
+        uint256 currentTotalAssets_ = _currentTotalAssets(aaveToken);
         uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
 
-        // TODO: Confirm we need to account for possible underflows.
-        currentTotalAssets_ <= currentAccruedFees_
-            ? assetsUnderManagement_ = 0
-            : assetsUnderManagement_ = currentTotalAssets_ - currentAccruedFees_;
+        // TODO: Confirm if we need to account for possible underflows.
+        assetsUnderManagement_ = currentTotalAssets_ > currentAccruedFees_ ? currentTotalAssets_ - currentAccruedFees_ : 0;
+    }
+
+    function unrealizedLosses() external view override returns (uint256 unrealizedLosses_) {
+        if (_strategyState() == StrategyState.Impaired) {
+            unrealizedLosses_ = assetsUnderManagement();
+        }
     }
 
     /**************************************************************************************************************************************/
@@ -92,7 +139,7 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     /**************************************************************************************************************************************/
 
     function _accrueFees(address aavePool_, address aaveToken_, address fundsAsset_) internal {
-        uint256 currentTotalAssets_      = IAaveTokenLike(aaveToken_).balanceOf(address(this));
+        uint256 currentTotalAssets_      = _currentTotalAssets(aaveToken_);
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
         uint256 strategyFeeRate_         = strategyFeeRate;
 
@@ -108,7 +155,7 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
         // Calculate strategy fee.
-        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate < HUNDRED_PERCENT`.
+        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
         uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
 
         // Withdraw the fees from the strategy vault.
@@ -137,8 +184,12 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
         // Calculate strategy fee.
-        // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate < HUNDRED_PERCENT`.
+        // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
+    }
+
+    function _currentTotalAssets(address aaveToken_) internal view returns (uint256 currentTotalAssets_) {
+        currentTotalAssets_ = IAaveTokenLike(aaveToken_).balanceOf(address(this));
     }
 
     function _locked() internal view override returns (uint256) {
