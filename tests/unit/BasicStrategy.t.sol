@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
-import { IMapleBasicStrategy } from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategy.sol";
-import { StrategyState }       from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategyStorage.sol";
+import { IMapleStrategy } from "../../contracts/interfaces/IMapleStrategy.sol";
+import { StrategyState }  from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategyStorage.sol";
 
 import {
     IERC20Like,
@@ -327,11 +327,6 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         );
 
         vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.approve, (address(vault), 1e6))
-        );
-
-        vm.expectCall(
             address(vault),
             abi.encodeCall(IERC4626Like.deposit, (1e6, address(strategy)))
         );
@@ -339,6 +334,8 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
         vm.prank(poolDelegate);
         strategy.fundStrategy(1e6);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 1e6);
     }
 
     function test_fund_successWithStrategyManager() external {
@@ -353,17 +350,14 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         );
 
         vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.approve, (address(vault), 1e6))
-        );
-
-        vm.expectCall(
             address(vault),
             abi.encodeCall(IERC4626Like.deposit, (1e6, address(strategy)))
         );
 
         vm.prank(strategyManager);
         strategy.fundStrategy(1e6);
+
+        assertEq(strategy.lastRecordedTotalAssets(), 1e6);
     }
 
 }
@@ -424,7 +418,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -459,7 +453,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -496,7 +490,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -523,7 +517,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(

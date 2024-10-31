@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import { StrategyState } from "../../contracts/MapleAbstractStrategy.sol";
+import { StrategyState } from "../../contracts/interfaces/IMapleStrategy.sol";
 
 import { MapleAaveStrategy }  from "../../contracts/MapleAaveStrategy.sol";
 import { MapleBasicStrategy } from "../../contracts/MapleBasicStrategy.sol";
@@ -34,7 +34,7 @@ contract MapleBasicStrategyHarness is MapleBasicStrategy {
 contract MapleSkyStrategyHarness is MapleSkyStrategy {
 
     function __accrueFees() external {
-        _accrueFees(savingsUsds);
+        _accrueFees(psm, savingsUsds);
     }
 
     function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {

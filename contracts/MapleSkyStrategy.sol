@@ -1,25 +1,24 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-import { ERC20Helper }        from "../modules/erc20-helper/src/ERC20Helper.sol";
-import { IMapleProxyFactory } from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxyFactory.sol";
+import { StrategyState }     from "./interfaces/IMapleStrategy.sol";
+import { IMapleSkyStrategy } from "./interfaces/skyStrategy/IMapleSkyStrategy.sol";
 
 import {
     IERC20Like,
     IERC4626Like,
     IGlobalsLike,
+    IMapleProxyFactoryLike,
     IPoolLike,
     IPoolManagerLike,
     IPSMLike
 } from "./interfaces/Interfaces.sol";
 
-import { IMapleSkyStrategy } from "./interfaces/skyStrategy/IMapleSkyStrategy.sol";
-
 import { MapleSkyStrategyStorage } from "./proxy/skyStrategy/MapleSkyStrategyStorage.sol";
 
-import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
+import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
-// TODO: Consider infinite approvals
+// TODO: Add more state variable caching.
 contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAbstractStrategy {
 
     uint256 internal constant WAD = 1e18;
@@ -31,39 +30,42 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     /**************************************************************************************************************************************/
 
     function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
-        address globals_ = globals();
-        address psm_     = psm;
+        address globals_     = globals();
+        address psm_         = psm;
+        address savingsUsds_ = savingsUsds;
 
-        require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", savingsUsds), "MSS:FS:INVALID_STRATEGY_VAULT");
-        require(IGlobalsLike(globals_).isInstanceOf("PSM", psm_),                   "MSS:FS:INVALID_PSM");
+        require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", savingsUsds_), "MSS:FS:INVALID_STRATEGY_VAULT");
+        require(IGlobalsLike(globals_).isInstanceOf("PSM", psm_),                    "MSS:FS:INVALID_PSM");
 
-        _accrueFees(savingsUsds);
+        _accrueFees(psm_, savingsUsds_);
 
-        lastRecordedTotalAssets += assetsIn_;
-
-        _prepareFundsForStrategy(psm_, assetsIn_);
+        IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 
         // NOTE: Assume Gem asset and USDS are interchangeable 1:1 for the purposes of Pool Accounting
         uint256 usdsOut_ = IPSMLike(psm_).sellGem(address(this), assetsIn_);
 
+        // NOTE: Use `usdsOut_` as the PSM may have a non-zero `tin()` value.
+        lastRecordedTotalAssets += _gemForUsds(usdsOut_);
+
         // Deposit into sUSDS
-        IERC4626Like(savingsUsds).deposit(usdsOut_, address(this));
+        IERC4626Like(savingsUsds_).deposit(usdsOut_, address(this));
 
         emit StrategyFunded(assetsIn_);
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        address psm_         = psm;
         address savingsUsds_ = savingsUsds;
 
         if (_strategyState() == StrategyState.Active) {
             require(assetsOut_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
 
-            _accrueFees(savingsUsds_);
+            _accrueFees(psm_, savingsUsds_);
 
             lastRecordedTotalAssets -= assetsOut_;
         }
 
-        _withdraw(savingsUsds_, assetsOut_, pool);
+        _withdraw(psm_, savingsUsds_, assetsOut_, pool);
 
         emit StrategyWithdrawal(assetsOut_);
     }
@@ -108,7 +110,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_STRATEGY_FEE_RATE");
 
         // Account for any fees before changing the fee rate
-        _accrueFees(savingsUsds);
+        _accrueFees(psm, savingsUsds);
 
         strategyFeeRate = strategyFeeRate_;
 
@@ -144,7 +146,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     /*** Internal Functions                                                                                                             ***/
     /**************************************************************************************************************************************/
 
-    function _accrueFees(address savingsUsds_) internal {
+    function _accrueFees(address psm_, address savingsUsds_) internal {
         uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds_);
 
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
@@ -167,7 +169,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
         // Withdraw the fees from the strategy vault.
         if (strategyFee_ != 0) {
-            _withdraw(savingsUsds_, strategyFee_, treasury());
+            _withdraw(psm_, savingsUsds_, strategyFee_, treasury());
 
             emit StrategyFeesCollected(strategyFee_);
         }
@@ -193,14 +195,6 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         // Calculate strategy fee.
         // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
-    }
-
-    function _prepareFundsForStrategy(address destination_, uint256 amount_) internal {
-        // Request funds from Pool Manager.
-        IPoolManagerLike(poolManager).requestFunds(address(this), amount_);
-
-        // Approve the strategy to use these funds.
-        require(ERC20Helper.approve(fundsAsset, destination_, amount_), "MSS:PFFS:APPROVE_FAILED");
     }
 
     function _setLock(uint256 lock_) internal override {
@@ -235,18 +229,13 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         return _gemForUsds(IERC4626Like(savingsUsds_).convertToAssets(IERC20Like(savingsUsds_).balanceOf(address(this))));
     }
 
-    function _withdraw(address savingsUsds_, uint256 assets_, address destination_) internal {
+    function _withdraw(address psm_, address savingsUsds_, uint256 assets_, address destination_) internal {
         uint256 requiredUsds_ = _usdsForGem(assets_);
 
         IERC4626Like(savingsUsds_).withdraw(requiredUsds_, address(this), address(this));
 
-        require(ERC20Helper.approve(usds, psm, requiredUsds_), "MSS:WFS:APPROVE_FAIL");
-
         // There might be some USDS left over in this contract due to rounding.
-        IPSMLike(psm).buyGem(address(this), assets_);
-
-        // Send the asset to the pool
-        require(ERC20Helper.transfer(fundsAsset, destination_, assets_), "MSS:WFS:TRANSFER_FAILED");
+        IPSMLike(psm_).buyGem(destination_, assets_);
     }
 
     /**************************************************************************************************************************************/
@@ -258,7 +247,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function globals() public view override returns (address globals_) {
-        globals_ = IMapleProxyFactory(_factory()).mapleGlobals();
+        globals_ = IMapleProxyFactoryLike(_factory()).mapleGlobals();
     }
 
     function governor() public view override returns (address governor_) {

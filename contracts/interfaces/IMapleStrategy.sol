@@ -1,43 +1,120 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import { IMapleProxied } from "../../modules/maple-proxy-factory/contracts/interfaces/IMapleProxied.sol";
+/**
+ *  @dev Represents the current state of a Maple strategy.
+ *       Can be active, impaired, or inactive.
+ */
+enum StrategyState {
+    Active,
+    Impaired,
+    Inactive
+}
 
-
-interface IMapleStrategy is IMapleProxied  {
+interface IMapleStrategy {
 
     /**************************************************************************************************************************************/
-    /*** View Functions                                                                                                                 ***/
+    /*** Events                                                                                                                         ***/
     /**************************************************************************************************************************************/
 
     /**
-     *  @dev   Returns the address of the globals contract.
-     *  @param globals Address of the globals contract.
+     *  @dev Emitted when the strategy is deactivated.
      */
-    function globals() external view returns (address globals);
+    event StrategyDeactivated();
 
     /**
-     *  @dev   Return the address of the governor.
-     *  @param governor Address of the governor contract.
+     *  @dev   Emitted when fees on the strategy's yield are collected.
+     *  @param fees Amount of assets collected by the treasury.
      */
-    function governor() external view returns (address governor);
+    event StrategyFeesCollected(uint256 fees);
 
     /**
-     *  @dev   Returns the address of the implementation.
-     *  @param implementation Address of the implementation.
+     *  @dev   Emitted when the fee rate on the strategy's yield is updated.
+     *  @param feeRate Percentage of yield that accrues to the treasury.
      */
-    function implementation() external view returns (address implementation);
+    event StrategyFeeRateSet(uint256 feeRate);
 
     /**
-     *  @dev   Returns the address of the pool delegate.
-     *  @param poolDelegate Address of the pool delegate.
+     *  @dev   Emitted when assets are deposited into the strategy.
+     *  @param assets Amount of assets deposited.
      */
-    function poolDelegate() external view returns (address poolDelegate);
+    event StrategyFunded(uint256 assets);
 
     /**
-     *  @dev   Returns the address of the security admin.
-     *  @param securityAdmin Address of the security admin.
+     *  @dev Emitted when the strategy is impaired.
      */
-    function securityAdmin() external view returns (address securityAdmin);
+    event StrategyImpaired();
+
+    /**
+     *  @dev Emitted when the strategy is reactivated.
+     */
+    event StrategyReactivated();
+
+    /**
+     *  @dev   Emitted when assets are withdrawn from the strategy.
+     *  @param assets Amount of assets withdrawn.
+     */
+    event StrategyWithdrawal(uint256 assets);
+
+    /**************************************************************************************************************************************/
+    /*** Strategy Manager Functions                                                                                                     ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev   Deploys assets from the Maple pool into the strategy.
+     *         Funding can only be attempted when the strategy is active.
+     *  @param assetsIn Amount of assets to deploy.
+     */
+    function fundStrategy(uint256 assetsIn) external;
+
+    /**
+     *  @dev   Withdraw assets from the strategy back into the Maple pool.
+     *         Withdrawals can be attempted even if the strategy is impaired or inactive.
+     *  @param assetsOut Amount of assets to withdraw.
+     */
+    function withdrawFromStrategy(uint256 assetsOut) external;
+
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev Disables funding and marks all assets under management as zero.
+     */
+    function deactivateStrategy() external;
+
+    /**
+     *  @dev Disables funding and marks all assets under management as unrealized losses.
+     */
+    function impairStrategy() external;
+
+    /**
+     *  @dev   Resumes normal operation of the strategy.
+     *  @param updateAccounting Flag that defines if fee accounting should be refreshed.
+     */
+    function reactivateStrategy(bool updateAccounting) external;
+
+    /**
+     *  @dev    Sets a new fee rate for the strategy.
+     *          Can only be called when the strategy is active.
+     *  @param  feeRate Percentage of yield that accrues to the Maple treasury.
+     */
+    function setStrategyFeeRate(uint256 feeRate) external;
+
+    /**************************************************************************************************************************************/
+    /*** Strategy View Functions                                                                                                        ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev    Returns the current amount of assets managed by the strategy.
+     *  @return assetsUnderManagement Amount of assets managed by the strategy.
+     */
+    function assetsUnderManagement() external view returns (uint256 assetsUnderManagement);
+
+    /**
+     *  @dev    Returns the current amount of unrealized losses.
+     *  @return unrealizedLosses Amount of assets marked as unrealized losses.
+     */
+    function unrealizedLosses() external view returns (uint256 unrealizedLosses);
 
 }

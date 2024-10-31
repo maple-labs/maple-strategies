@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-import { ERC20Helper } from "../modules/erc20-helper/src/ERC20Helper.sol";
-
+import { StrategyState }      from "./interfaces/IMapleStrategy.sol";
 import { IMapleAaveStrategy } from "./interfaces/aaveStrategy/IMapleAaveStrategy.sol";
 
 import {
@@ -15,8 +14,7 @@ import {
 
 import { MapleAaveStrategyStorage } from "./proxy/aaveStrategy/MapleAaveStrategyStorage.sol";
 
-import { MapleAaveStrategy }                    from "./MapleAaveStrategy.sol";
-import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
+import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 // TODO: Add more state variable caching.
 contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAaveStrategyStorage {
@@ -37,8 +35,6 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         _accrueFees(aavePool_, aaveToken_, fundsAsset_);
 
         lastRecordedTotalAssets += assetsIn_;
-
-        require(ERC20Helper.approve(fundsAsset_, aavePool_, assetsIn_), "MAS:FS:APPROVE_FAIL");
 
         IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 

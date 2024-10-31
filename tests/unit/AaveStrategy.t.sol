@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
-import { IMapleAaveStrategy } from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategy.sol";
-import { StrategyState }      from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
+import { IMapleStrategy } from "../../contracts/interfaces/IMapleStrategy.sol";
+import { StrategyState }  from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
 
 import {
     IAavePoolLike,
@@ -269,17 +269,14 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
         );
 
         vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.approve, (address(aavePool), assets))
-        );
-
-        vm.expectCall(
             address(aavePool),
             abi.encodeCall(IAavePoolLike.supply, (address(asset), assets, address(strategy), 0))
         );
 
         vm.prank(poolDelegate);
         strategy.fundStrategy(assets);
+
+        assertEq(strategy.lastRecordedTotalAssets(), assets);
     }
 
     function test_fundStrategy_successWithStrategyManager() external {
@@ -292,17 +289,14 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
         );
 
         vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.approve, (address(aavePool), assets))
-        );
-
-        vm.expectCall(
             address(aavePool),
             abi.encodeCall(IAavePoolLike.supply, (address(asset), assets, address(strategy), 0))
         );
 
         vm.prank(strategyManager);
         strategy.fundStrategy(assets);
+
+        assertEq(strategy.lastRecordedTotalAssets(), assets);
     }
 
 }
@@ -352,7 +346,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
             vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -377,7 +371,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
             vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -404,7 +398,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -426,7 +420,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(

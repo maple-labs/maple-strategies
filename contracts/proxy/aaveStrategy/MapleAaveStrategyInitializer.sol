@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
+import { ERC20Helper } from "../../../modules/erc20-helper/src/ERC20Helper.sol";
+
 import { IMapleAaveStrategyInitializer } from "../../interfaces/aaveStrategy/IMapleAaveStrategyInitializer.sol";
 
 import {
@@ -35,6 +37,7 @@ contract MapleAaveStrategyInitializer is IMapleAaveStrategyInitializer, MapleAav
         require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MASI:I:INVALID_PM");
         require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", aaveToken_),     "MASI:I:INVALID_STRATEGY");
         require(IPoolLike(pool_).asset() == fundsAsset_,                               "MASI:I:INVALID_ASSET");
+        require(ERC20Helper.approve(fundsAsset_, aavePool_, type(uint256).max),        "MASI:I:APPROVE_FAIL");
 
         aavePool    = aavePool_;
         aaveToken   = aaveToken_;

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
+import { ERC20Helper } from "../../../modules/erc20-helper/src/ERC20Helper.sol";
+
 import { MapleProxiedInternals } from "../../../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
 
 import {
@@ -42,6 +44,11 @@ contract MapleSkyStrategyInitializer is IMapleSkyStrategyInitializer, MapleSkySt
         require(IGlobalsLike(globals_).isInstanceOf("PSM", psm_),                    "MSSI:I:INVALID_PSM");
         require(IPSMLike(psm_).gem() == fundsAsset_,                                 "MSSI:I:INVALID_GEM_PSM");
         require(IPSMLike(psm_).usds() == usds_,                                      "MSSI:I:INVALID_USDS_PSM");
+
+        // TODO: Check if any of these approvals are not needed.
+        require(ERC20Helper.approve(fundsAsset_, psm_,         type(uint256).max), "MSSI:I:GEM_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds_,       psm_,         type(uint256).max), "MSSI:I:USDS_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds_,       savingsUsds_, type(uint256).max), "MSSI:I:SUSDS_APPROVE_FAIL");
 
         locked = 1;
 

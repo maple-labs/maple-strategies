@@ -6,6 +6,8 @@ import { IMapleProxyFactory }    from "../modules/maple-proxy-factory/contracts/
 import { IMapleProxied }         from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxied.sol";
 import { MapleProxiedInternals } from "../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
 
+import { IMapleStrategy, StrategyState } from "./interfaces/IMapleStrategy.sol";
+
 import {
     IERC20Like,
     IGlobalsLike,
@@ -13,15 +15,10 @@ import {
     IPoolManagerLike
 } from "./interfaces/Interfaces.sol";
 
-// TODO: Add NatSpec
-enum StrategyState {
-    Active,
-    Impaired,
-    Inactive
-}
-
-// @dev This is the base contract for all Maple strategies to inherit from.
-abstract contract MapleAbstractStrategy is IMapleProxied, MapleProxiedInternals {
+/**
+ *  @dev This is the base contract that all Maple strategies inherit from.
+ */
+abstract contract MapleAbstractStrategy is IMapleStrategy, IMapleProxied, MapleProxiedInternals {
 
     /**************************************************************************************************************************************/
     /*** Modifiers                                                                                                                      ***/

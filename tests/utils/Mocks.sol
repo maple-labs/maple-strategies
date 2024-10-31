@@ -244,8 +244,8 @@ contract MockPSM {
         return gemAmt;
     }
 
-    function sellGem(address, uint256 gemAmt) external pure returns (uint256 daiOutWad) {
-        return gemAmt;
+    function sellGem(address, uint256 gemAmt) external view returns (uint256 daiOutWad) {
+        return gemAmt * 1e12 * (1e18 - tin) / 1e18;
     }
 
     function __setGem(address gem_) external {

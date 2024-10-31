@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import { IMapleSkyStrategy } from "../../contracts/interfaces/skyStrategy/IMapleSkyStrategy.sol";
-import { StrategyState }     from "../../contracts/interfaces/skyStrategy/IMapleSkyStrategyStorage.sol";
+import { IMapleStrategy } from "../../contracts/interfaces/IMapleStrategy.sol";
+import { StrategyState }  from "../../contracts/interfaces/skyStrategy/IMapleSkyStrategyStorage.sol";
 
 import {
     IERC20Like,
@@ -381,10 +381,9 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
 }
 
-// TODO: Add Test to account for non-zero Tin Value
 contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
 
-    uint256 amount = 1e18;
+    uint256 usdcAmount = 5e18;
 
     MapleSkyStrategyHarness strategyHarness;
 
@@ -446,68 +445,63 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
     }
 
     function test_fund_successWithStrategyManager() external {
-        assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
+        uint256 usdsAmount = usdcAmount * 1e12 * (1e18 - tin) / 1e18;
 
         vm.expectEmit();
-        emit StrategyFunded(amount);
+        emit StrategyFunded(usdcAmount);
 
         // Expect call to pool manager to request funds
         vm.expectCall(
             address(poolManager),
-            abi.encodeCall(IPoolManagerLike.requestFunds, (address(strategy), amount))
-        );
-
-        // Expect call to asset for approval of PSM to spend asset
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.approve, (address(psm), amount))
+            abi.encodeCall(IPoolManagerLike.requestFunds, (address(strategy), usdcAmount))
         );
 
         // Expect call to PSM for swapping
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.sellGem, (address(strategy), amount))
+            abi.encodeCall(IPSMLike.sellGem, (address(strategy), usdcAmount))
         );
 
         // Expect call to vault for depositing USDS for sUSDS
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.deposit, (amount, address(strategy)))
+            abi.encodeCall(IERC4626Like.deposit, (usdsAmount, address(strategy)))
         );
 
-        strategy.fundStrategy(1e18);
+        vm.prank(strategyManager);
+        strategy.fundStrategy(usdcAmount);
+
+        assertEq(strategy.lastRecordedTotalAssets(), _gemForUsds(usdsAmount));
     }
 
     function test_fund_successWithPoolDelegate() external {
+        uint256 usdsAmount = usdcAmount * 1e12 * (1e18 - tin) / 1e18;
+
         vm.expectEmit();
-        emit StrategyFunded(amount);
+        emit StrategyFunded(usdcAmount);
 
         // Expect call to pool manager to request funds
         vm.expectCall(
             address(poolManager),
-            abi.encodeCall(IPoolManagerLike.requestFunds, (address(strategy), amount))
-        );
-
-        // Expect call to asset for approval of PSM to spend asset
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.approve, (address(psm), amount))
+            abi.encodeCall(IPoolManagerLike.requestFunds, (address(strategy), usdcAmount))
         );
 
         // Expect call to PSM for swapping
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.sellGem, (address(strategy), amount))
+            abi.encodeCall(IPSMLike.sellGem, (address(strategy), usdcAmount))
         );
 
         // Expect call to vault for depositing USDS for sUSDS
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.deposit, (amount, address(strategy)))
+            abi.encodeCall(IERC4626Like.deposit, (usdsAmount, address(strategy)))
         );
 
         vm.startPrank(poolDelegate);
-        strategy.fundStrategy(1e18);
+        strategy.fundStrategy(usdcAmount);
+
+        assertEq(strategy.lastRecordedTotalAssets(), _gemForUsds(usdsAmount));
     }
 
 }
@@ -568,14 +562,6 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
         strategy.withdrawFromStrategy(assets);
     }
 
-    function test_withdraw_transferFail() external {
-        asset.burn(address(strategy), 1);
-
-        vm.expectRevert("MSS:WFS:TRANSFER_FAILED");
-        vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(assets);
-    }
-
     function test_withdraw_successWithPoolDelegate() external {
         // Expect StrategyWithdrawn event
         vm.expectEmit();
@@ -583,7 +569,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -598,12 +584,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+            abi.encodeCall(IPSMLike.buyGem, (address(pool), assets))
         );
 
         vm.prank(poolDelegate);
@@ -618,7 +599,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -638,12 +619,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+            abi.encodeCall(IPSMLike.buyGem, (address(pool), assets))
         );
 
         vm.prank(strategyManager);
@@ -660,7 +636,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -675,12 +651,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+            abi.encodeCall(IPSMLike.buyGem, (address(pool), assets))
         );
 
         vm.prank(strategyManager);
@@ -697,7 +668,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleSkyStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -712,12 +683,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), assets))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(pool), assets))
+            abi.encodeCall(IPSMLike.buyGem, (address(pool), assets))
         );
 
         vm.prank(strategyManager);
@@ -845,12 +811,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), feeAmount))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(treasury), feeAmount))
+            abi.encodeCall(IPSMLike.buyGem, (address(treasury), feeAmount))
         );
 
         strategyHarness.__accrueFees();
@@ -888,12 +849,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), strategyFee))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(treasury), strategyFee))
+            abi.encodeCall(IPSMLike.buyGem, (address(treasury), strategyFee))
         );
 
         strategyHarness.__accrueFees();
@@ -1070,12 +1026,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), strategyFee))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(treasury), strategyFee))
+            abi.encodeCall(IPSMLike.buyGem, (address(treasury), strategyFee))
         );
 
         vm.prank(poolDelegate);
@@ -1128,12 +1079,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(psm),
-            abi.encodeCall(IPSMLike.buyGem, (address(strategy), strategyFee))
-        );
-
-        vm.expectCall(
-            address(asset),
-            abi.encodeCall(IERC20Like.transfer, (address(treasury), strategyFee))
+            abi.encodeCall(IPSMLike.buyGem, (address(treasury), strategyFee))
         );
 
         vm.prank(poolDelegate);

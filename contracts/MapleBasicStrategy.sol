@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
-import { ERC20Helper }        from "../modules/erc20-helper/src/ERC20Helper.sol";
-import { IMapleProxyFactory } from "../modules/maple-proxy-factory/contracts/interfaces/IMapleProxyFactory.sol";
-
+import { StrategyState }       from "./interfaces/IMapleStrategy.sol";
 import { IMapleBasicStrategy } from "./interfaces/basicStrategy/IMapleBasicStrategy.sol";
 
 import {
     IERC20Like,
     IERC4626Like,
     IGlobalsLike,
+    IMapleProxyFactoryLike,
     IPoolLike,
     IPoolManagerLike
 } from "./interfaces/Interfaces.sol";
 
 import { MapleBasicStrategyStorage } from "./proxy/basicStrategy/MapleBasicStrategyStorage.sol";
 
-import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.sol";
+import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 /*
     ███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
@@ -35,7 +34,6 @@ import { MapleAbstractStrategy, StrategyState } from "./MapleAbstractStrategy.so
 
 */
 
-// TODO: Ensure events are consistent across strategies.
 // TODO: Add state variable caching.
 contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, MapleAbstractStrategy {
 
@@ -54,7 +52,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
 
         lastRecordedTotalAssets += assetsIn_;
 
-        _prepareFundsForStrategy(strategyVault_, assetsIn_);
+        IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 
         IERC4626Like(strategyVault_).deposit(assetsIn_, address(this));
 
@@ -207,15 +205,6 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         currentTotalAssets_ = IERC4626Like(strategyVault_).convertToAssets(currentTotalShares_);
     }
 
-    function _prepareFundsForStrategy(address destination_, uint256 amount_) internal {
-        // Request funds from Pool Manager.
-        IPoolManagerLike(poolManager).requestFunds(address(this), amount_);
-
-        // Approve the strategy to use these funds.
-        // TODO: Remove after infinite approval is added.
-        require(ERC20Helper.approve(fundsAsset, destination_, amount_), "MBS:PFFS:APPROVE_FAILED");
-    }
-
     function _setLock(uint256 lock_) internal override {
         locked = lock_;
     }
@@ -237,7 +226,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     }
 
     function globals() public view override returns (address globals_) {
-        globals_ = IMapleProxyFactory(_factory()).mapleGlobals();
+        globals_ = IMapleProxyFactoryLike(_factory()).mapleGlobals();
     }
 
     function governor() public view override returns (address governor_) {

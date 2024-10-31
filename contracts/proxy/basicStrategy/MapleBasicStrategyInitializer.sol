@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
+import { ERC20Helper } from "../../../modules/erc20-helper/src/ERC20Helper.sol";
+
 import { MapleProxiedInternals } from "../../../modules/maple-proxy-factory/contracts/MapleProxiedInternals.sol";
 
 import { IMapleBasicStrategyInitializer } from "../../interfaces/basicStrategy/IMapleBasicStrategyInitializer.sol";
@@ -38,6 +40,7 @@ contract MapleBasicStrategyInitializer is IMapleBasicStrategyInitializer, MapleB
 
         require(IGlobalsLike(globals_).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBSI:I:INVALID_STRATEGY_VAULT");
         require(fundsAsset_ == strategyVaultAsset_,                                    "MBSI:I:INVALID_STRATEGY_ASSET");
+        require(ERC20Helper.approve(fundsAsset_, strategyVault_, type(uint256).max),   "MBSI:I:APPROVE_FAIL");
 
         locked = 1;
 

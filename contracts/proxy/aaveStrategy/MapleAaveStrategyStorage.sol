@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
+import { StrategyState }             from "../../interfaces/IMapleStrategy.sol";
 import { IMapleAaveStrategyStorage } from "../../interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
-
-import { StrategyState } from "../../MapleAbstractStrategy.sol";
 
 contract MapleAaveStrategyStorage is IMapleAaveStrategyStorage {
 
