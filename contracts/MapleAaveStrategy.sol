@@ -44,6 +44,8 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assetsOut_ > 0, "MAS:WFS:ZERO_ASSETS");
+
         address aavePool_   = aavePool;
         address fundsAsset_ = fundsAsset;
 

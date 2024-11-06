@@ -549,6 +549,11 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
         strategy.withdrawFromStrategy(assets);
     }
 
+    function test_withdrawFromStrategy_failIfZeroAssets() external {
+        vm.expectRevert("MSS:WFS:ZERO_ASSETS");
+        strategy.withdrawFromStrategy(0);
+    }
+
     function test_withdrawFromStrategy_failIfLowAssets() external {
         vm.prank(poolDelegate);
         vm.expectRevert("MSS:WFS:LOW_ASSETS");

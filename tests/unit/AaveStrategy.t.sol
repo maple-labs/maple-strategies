@@ -334,6 +334,11 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
         strategy.withdrawFromStrategy(assetsOut);
     }
 
+    function test_withdrawFromStrategy_failIfZeroAssets() external {
+        vm.expectRevert("MAS:WFS:ZERO_ASSETS");
+        strategy.withdrawFromStrategy(0);
+    }
+
     function test_withdrawFromStrategy_failIfLowAssets() external {
         vm.prank(poolDelegate);
         vm.expectRevert("MAS:WFS:LOW_ASSETS");

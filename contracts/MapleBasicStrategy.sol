@@ -60,6 +60,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assetsOut_ > 0, "MBS:WFS:ZERO_ASSETS");
+
         address strategyVault_ = strategyVault;
 
         // Strategy only accrues fees when it is active.

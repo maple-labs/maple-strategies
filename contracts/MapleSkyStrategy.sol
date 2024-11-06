@@ -54,6 +54,8 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+        require(assetsOut_ > 0, "MSS:WFS:ZERO_ASSETS");
+
         address psm_         = psm;
         address savingsUsds_ = savingsUsds;
 

@@ -404,6 +404,11 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         strategy.withdrawFromStrategy(assetsOut);
     }
 
+    function test_withdrawFromStrategy_failIfZeroAssets() external {
+        vm.expectRevert("MBS:WFS:ZERO_ASSETS");
+        strategy.withdrawFromStrategy(0);
+    }
+
     function test_withdrawFromStrategy_failIfLowAssets() external {
         vault.__setBalanceOf(address(strategy), totalAssets);
 
