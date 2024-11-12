@@ -18,7 +18,29 @@ import { MapleSkyStrategyStorage } from "./proxy/skyStrategy/MapleSkyStrategySto
 
 import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
-// TODO: Add more state variable caching.
+/*
+███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
+████╗ ████║██╔══██╗██╔══██╗██║     ██╔════╝
+██╔████╔██║███████║██████╔╝██║     █████╗
+██║╚██╔╝██║██╔══██║██╔═══╝ ██║     ██╔══╝
+██║ ╚═╝ ██║██║  ██║██║     ███████╗███████╗
+╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
+
+███████╗██╗  ██╗██╗   ██╗
+██╔════╝██║ ██╔╝╚██╗ ██╔╝
+███████╗█████╔╝  ╚████╔╝
+╚════██║██╔═██╗   ╚██╔╝
+███████║██║  ██╗   ██║
+╚══════╝╚═╝  ╚═╝   ╚═╝
+
+███████╗████████╗██████╗  █████╗ ████████╗███████╗ ██████╗██╗   ██╗
+██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔════╝╚██╗ ██╔╝
+███████╗   ██║   ██████╔╝███████║   ██║   █████╗  ██║  ███╗╚████╔╝
+╚════██║   ██║   ██╔══██╗██╔══██║   ██║   ██╔══╝  ██║   ██║ ╚██╔╝
+███████║   ██║   ██║  ██║██║  ██║   ██║   ███████╗╚██████╔╝  ██║
+╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝   ╚═╝
+*/
+
 contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAbstractStrategy {
 
     uint256 internal constant WAD = 1e18;
@@ -44,11 +66,9 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         // NOTE: Assume Gem asset and USDS are interchangeable 1:1 for the purposes of Pool Accounting
         uint256 usdsOut_ = IPSMLike(psm_).sellGem(address(this), assetsIn_);
 
-        // NOTE: Use `usdsOut_` as the PSM may have a non-zero `tin()` value.
-        lastRecordedTotalAssets += _gemForUsds(usdsOut_);
-
-        // Deposit into sUSDS
         IERC4626Like(savingsUsds_).deposit(usdsOut_, address(this));
+
+        lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
 
         emit StrategyFunded(assetsIn_);
     }
@@ -59,15 +79,19 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         address psm_         = psm;
         address savingsUsds_ = savingsUsds;
 
-        if (_strategyState() == StrategyState.Active) {
+        bool isStrategyActive_ = _strategyState() == StrategyState.Active;
+
+        if (isStrategyActive_) {
             require(assetsOut_ <= assetsUnderManagement(), "MSS:WFS:LOW_ASSETS");
 
             _accrueFees(psm_, savingsUsds_);
-
-            lastRecordedTotalAssets -= assetsOut_;
         }
 
         _withdraw(psm_, savingsUsds_, assetsOut_, pool);
+
+        if (isStrategyActive_) {
+            lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
+        }
 
         emit StrategyWithdrawal(assetsOut_);
     }
@@ -103,7 +127,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
         strategyState = StrategyState.Active;
 
-        emit StrategyReactivated();
+        emit StrategyReactivated(updateAccounting_);
     }
 
     function setStrategyFeeRate(uint256 strategyFeeRate_)
@@ -111,10 +135,13 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     {
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_STRATEGY_FEE_RATE");
 
-        // Account for any fees before changing the fee rate
-        _accrueFees(psm, savingsUsds);
+        address savingsUsds_ = savingsUsds;
 
-        strategyFeeRate = strategyFeeRate_;
+        // Account for any fees before changing the fee rate
+        _accrueFees(psm, savingsUsds_);
+
+        lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
+        strategyFeeRate         = strategyFeeRate_;
 
         emit StrategyFeeRateSet(strategyFeeRate_);
     }
@@ -130,12 +157,8 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         }
 
         uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds);
-        uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
 
-        // TODO: Confirm we we need to account for this first case.
-        currentTotalAssets_ <= currentAccruedFees_
-            ? assetsUnderManagement_ = 0
-            : assetsUnderManagement_ = currentTotalAssets_ - currentAccruedFees_;
+        assetsUnderManagement_ = currentTotalAssets_ - _currentAccruedFees(currentTotalAssets_);
     }
 
     function unrealizedLosses() external view override returns (uint256 unrealizedLosses_) {
@@ -150,24 +173,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
     function _accrueFees(address psm_, address savingsUsds_) internal {
         uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds_);
-
-        uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
-        uint256 strategyFeeRate_         = strategyFeeRate;
-
-        // No fees to accrue if TotalAssets has decreased or fee rate is zero.
-        if (currentTotalAssets_ <= lastRecordedTotalAssets_ || strategyFeeRate_ == 0) {
-            // Record currentTotalAssets
-            lastRecordedTotalAssets = currentTotalAssets_;
-            return;
-        }
-
-        // Yield accrued since last collection.
-        // Can't underflow due to check above.
-        uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
-
-        // Calculate strategy fee.
-        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
-        uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
+        uint256 strategyFee_        = _currentAccruedFees(currentTotalAssets_);
 
         // Withdraw the fees from the strategy vault.
         if (strategyFee_ != 0) {
@@ -175,10 +181,6 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
             emit StrategyFeesCollected(strategyFee_);
         }
-
-        // Record the TotalAssets
-        // Can't underflow as `strategyFee_` is <= `currentTotalAssets_`.
-        lastRecordedTotalAssets = currentTotalAssets_ - strategyFee_;
     }
 
     function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
@@ -190,25 +192,11 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
             return 0;
         }
 
-        // Yield accrued since last collection.
         // Can't underflow due to check above.
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
-        // Calculate strategy fee.
         // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
-    }
-
-    function _setLock(uint256 lock_) internal override {
-        locked = lock_;
-    }
-
-    function _locked() internal view override returns (uint256) {
-        return locked;
-    }
-
-    function _strategyState() internal view override returns (StrategyState) {
-        return strategyState;
     }
 
     function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
@@ -238,6 +226,18 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
         // There might be some USDS left over in this contract due to rounding.
         IPSMLike(psm_).buyGem(destination_, assets_);
+    }
+
+    function _locked() internal view override returns (uint256) {
+        return locked;
+    }
+
+    function _setLock(uint256 lock_) internal override {
+        locked = lock_;
+    }
+
+    function _strategyState() internal view override returns (StrategyState) {
+        return strategyState;
     }
 
     /**************************************************************************************************************************************/

@@ -81,7 +81,7 @@ contract BasicStrategyTestBase is TestBase {
     event StrategyFeeRateSet(uint256 feeRate);
     event StrategyFunded(uint256 assets);
     event StrategyImpaired();
-    event StrategyReactivated();
+    event StrategyReactivated(bool updateAccounting);
     event StrategyWithdrawal(uint256 assets);
 
     MapleBasicStrategy internal strategy;
@@ -102,7 +102,7 @@ contract BasicStrategyTestBase is TestBase {
 
         // Create the strategy instance.
         strategy = MapleBasicStrategy(factory.createInstance({
-            arguments_: abi.encode(address(pool), address(vault)),
+            arguments_: abi.encode(address(poolManager), address(vault)),
             salt_:      "SALT"
         }));
 
@@ -121,7 +121,7 @@ contract SkyStrategyTestBase is TestBase {
     event StrategyFeeRateSet(uint256 feeRate);
     event StrategyFunded(uint256 assetsIn);
     event StrategyImpaired();
-    event StrategyReactivated();
+    event StrategyReactivated(bool updateAccounting);
     event StrategyWithdrawal(uint256 assetsOut);
 
     uint256 internal tin  = 0.01e18;
@@ -154,7 +154,7 @@ contract SkyStrategyTestBase is TestBase {
 
         //Create the strategy instance.
         strategy = MapleSkyStrategy(factory.createInstance({
-            arguments_: abi.encode(address(pool), address(vault), address(psm)),
+            arguments_: abi.encode(address(poolManager), address(vault), address(psm)),
             salt_:      "SALT"
         }));
     }
@@ -187,7 +187,7 @@ contract AaveStrategyTestBase is TestBase {
     event StrategyFeeRateSet(uint256 feeRate);
     event StrategyFunded(uint256 assetsIn);
     event StrategyImpaired();
-    event StrategyReactivated();
+    event StrategyReactivated(bool updateAccounting);
     event StrategyWithdrawal(uint256 assetsOut);
 
     MockAavePool   aavePool;
@@ -211,7 +211,7 @@ contract AaveStrategyTestBase is TestBase {
 
         // Create the strategy instance.
         strategy = MapleAaveStrategyHarness(factory.createInstance({
-            arguments_: abi.encode(address(pool), address(aaveToken)),
+            arguments_: abi.encode(address(poolManager), address(aaveToken)),
             salt_:      "SALT"
         }));
     }

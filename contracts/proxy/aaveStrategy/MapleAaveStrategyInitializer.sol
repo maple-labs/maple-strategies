@@ -18,17 +18,17 @@ import { MapleAaveStrategyStorage } from "./MapleAaveStrategyStorage.sol";
 contract MapleAaveStrategyInitializer is IMapleAaveStrategyInitializer, MapleAaveStrategyStorage {
 
     fallback() external {
-        ( address pool_, address aaveToken_ ) = abi.decode(msg.data, (address, address));
+        ( address poolManager_, address aaveToken_ ) = abi.decode(msg.data, (address, address));
 
-        _initialize(pool_, aaveToken_);
+        _initialize(poolManager_, aaveToken_);
     }
 
-    function _initialize(address pool_, address aaveToken_) internal {
-        require(pool_      != address(0), "MASI:I:ZERO_POOL");
-        require(aaveToken_ != address(0), "MASI:I:ZERO_AAVE_TOKEN");
+    function _initialize(address poolManager_, address aaveToken_) internal {
+        require(poolManager_ != address(0), "MASI:I:ZERO_POOL_MANAGER");
+        require(aaveToken_   != address(0), "MASI:I:ZERO_AAVE_TOKEN");
 
         address globals_     = IMapleProxyFactoryLike(msg.sender).mapleGlobals();
-        address poolManager_ = IPoolLike(pool_).manager();
+        address pool_        = IPoolManagerLike(poolManager_).pool();
         address factory_     = IPoolManagerLike(poolManager_).factory();
         address aavePool_    = IAaveTokenLike(aaveToken_).POOL();
         address fundsAsset_  = IAaveTokenLike(aaveToken_).UNDERLYING_ASSET_ADDRESS();

@@ -21,21 +21,21 @@ import { MapleSkyStrategyStorage } from "./MapleSkyStrategyStorage.sol";
 contract MapleSkyStrategyInitializer is IMapleSkyStrategyInitializer, MapleSkyStrategyStorage, MapleProxiedInternals {
 
     fallback() external {
-        ( address pool_, address savingsUsds_, address psm_ ) = abi.decode(msg.data, (address, address, address));
+        ( address poolManager_, address savingsUsds_, address psm_ ) = abi.decode(msg.data, (address, address, address));
 
-        _initialize(pool_, savingsUsds_, psm_);
+        _initialize(poolManager_, savingsUsds_, psm_);
     }
 
-    function _initialize(address pool_, address savingsUsds_, address psm_) internal {
-        require(pool_ != address(0),        "MSSI:I:ZERO_POOL");
+    function _initialize(address poolManager_, address savingsUsds_, address psm_) internal {
+        require(poolManager_ != address(0), "MSSI:I:ZERO_POOL");
         require(savingsUsds_ != address(0), "MSSI:I:ZERO_SAVINGS_USDS");
-        require(psm_ != address(0),         "MSSI:I:ZERO_PSM");
+        require(psm_         != address(0), "MSSI:I:ZERO_PSM");
 
-        address globals_     = IMapleProxyFactoryLike(msg.sender).mapleGlobals();
-        address poolManager_ = IPoolLike(pool_).manager();
-        address factory_     = IPoolManagerLike(poolManager_).factory();
-        address fundsAsset_  = IPoolLike(pool_).asset();
-        address usds_        = IERC4626Like(savingsUsds_).asset();
+        address globals_    = IMapleProxyFactoryLike(msg.sender).mapleGlobals();
+        address pool_       = IPoolManagerLike(poolManager_).pool();
+        address factory_    = IPoolManagerLike(poolManager_).factory();
+        address fundsAsset_ = IPoolLike(pool_).asset();
+        address usds_       = IERC4626Like(savingsUsds_).asset();
 
         require(IGlobalsLike(globals_).isInstanceOf("POOL_MANAGER_FACTORY", factory_), "MSSI:I:INVALID_PM_FACTORY");
         require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MSSI:I:INVALID_PM");
@@ -45,7 +45,6 @@ contract MapleSkyStrategyInitializer is IMapleSkyStrategyInitializer, MapleSkySt
         require(IPSMLike(psm_).gem() == fundsAsset_,                                 "MSSI:I:INVALID_GEM_PSM");
         require(IPSMLike(psm_).usds() == usds_,                                      "MSSI:I:INVALID_USDS_PSM");
 
-        // TODO: Check if any of these approvals are not needed.
         require(ERC20Helper.approve(fundsAsset_, psm_,         type(uint256).max), "MSSI:I:GEM_APPROVE_FAIL");
         require(ERC20Helper.approve(usds_,       psm_,         type(uint256).max), "MSSI:I:USDS_APPROVE_FAIL");
         require(ERC20Helper.approve(usds_,       savingsUsds_, type(uint256).max), "MSSI:I:SUSDS_APPROVE_FAIL");

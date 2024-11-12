@@ -13,6 +13,10 @@ contract MapleBasicStrategyHarness is MapleBasicStrategy {
         _accrueFees(strategyVault_);
     }
 
+    function __currentTotalAssets() external view returns (uint256) {
+        return _currentTotalAssets(strategyVault);
+    }
+
     function __setLocked(uint256 locked_) external {
         locked = locked_;
     }
@@ -37,6 +41,10 @@ contract MapleSkyStrategyHarness is MapleSkyStrategy {
         _accrueFees(psm, savingsUsds);
     }
 
+    function __currentTotalAssets() external view returns (uint256) {
+        return _currentTotalAssets(savingsUsds);
+    }
+
     function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {
         lastRecordedTotalAssets = lastRecordedTotalAssets_;
     }
@@ -59,6 +67,10 @@ contract MapleAaveStrategyHarness is MapleAaveStrategy {
 
     function __accrueFees(address aavePool_, address aaveToken_, address fundsAsset_) external {
         _accrueFees(aavePool_, aaveToken_, fundsAsset_);
+    }
+
+    function __currentTotalAssets() external view returns (uint256) {
+        return _currentTotalAssets(aaveToken);
     }
 
     function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {

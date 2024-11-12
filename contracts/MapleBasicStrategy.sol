@@ -18,23 +18,28 @@ import { MapleBasicStrategyStorage } from "./proxy/basicStrategy/MapleBasicStrat
 import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 /*
-    ███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
-    ████╗ ████║██╔══██╗██╔══██╗██║     ██╔════╝
-    ██╔████╔██║███████║██████╔╝██║     █████╗
-    ██║╚██╔╝██║██╔══██║██╔═══╝ ██║     ██╔══╝
-    ██║ ╚═╝ ██║██║  ██║██║     ███████╗███████╗
-    ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
+███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
+████╗ ████║██╔══██╗██╔══██╗██║     ██╔════╝
+██╔████╔██║███████║██████╔╝██║     █████╗
+██║╚██╔╝██║██╔══██║██╔═══╝ ██║     ██╔══╝
+██║ ╚═╝ ██║██║  ██║██║     ███████╗███████╗
+╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
 
-    ███████╗████████╗██████╗  █████╗ ████████╗███████╗ ██████╗██╗   ██╗
-    ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔════╝╚██╗ ██╔╝
-    ███████╗   ██║   ██████╔╝███████║   ██║   █████╗  ██║  ███╗╚████╔╝
-    ╚════██║   ██║   ██╔══██╗██╔══██║   ██║   ██╔══╝  ██║   ██║ ╚██╔╝
-    ███████║   ██║   ██║  ██║██║  ██║   ██║   ███████╗╚██████╔╝  ██║
-    ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝   ╚═╝
+██████╗  █████╗ ███████╗██╗ ██████╗
+██╔══██╗██╔══██╗██╔════╝██║██╔════╝
+██████╔╝███████║███████╗██║██║
+██╔══██╗██╔══██║╚════██║██║██║
+██████╔╝██║  ██║███████║██║╚██████╗
+╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝ ╚═════╝
 
+███████╗████████╗██████╗  █████╗ ████████╗███████╗ ██████╗██╗   ██╗
+██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔════╝╚██╗ ██╔╝
+███████╗   ██║   ██████╔╝███████║   ██║   █████╗  ██║  ███╗╚████╔╝
+╚════██║   ██║   ██╔══██╗██╔══██║   ██║   ██╔══╝  ██║   ██║ ╚██╔╝
+███████║   ██║   ██║  ██║██║  ██║   ██║   ███████╗╚██████╔╝  ██║
+╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝   ╚═╝
 */
 
-// TODO: Add state variable caching.
 contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, MapleAbstractStrategy {
 
     uint256 public constant HUNDRED_PERCENT = 1e6;  // 100.0000%
@@ -50,11 +55,11 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
 
         _accrueFees(strategyVault_);
 
-        lastRecordedTotalAssets += assetsIn_;
-
         IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 
         IERC4626Like(strategyVault_).deposit(assetsIn_, address(this));
+
+        lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);
 
         emit StrategyFunded(assetsIn_);
     }
@@ -64,16 +69,20 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
 
         address strategyVault_ = strategyVault;
 
+        bool isStrategyActive_ = _strategyState() == StrategyState.Active;
+
         // Strategy only accrues fees when it is active.
-        if (_strategyState() == StrategyState.Active) {
+        if (isStrategyActive_) {
             require(assetsOut_ <= assetsUnderManagement(), "MBS:WFS:LOW_ASSETS");
 
             _accrueFees(strategyVault_);
-
-            lastRecordedTotalAssets -= assetsOut_;
         }
 
         IERC4626Like(strategyVault_).withdraw(assetsOut_, address(pool), address(this));
+
+        if (isStrategyActive_) {
+            lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);
+        }
 
         emit StrategyWithdrawal(assetsOut_);
     }
@@ -109,17 +118,20 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
 
         strategyState = StrategyState.Active;
 
-        emit StrategyReactivated();
+        emit StrategyReactivated(updateAccounting_);
     }
 
     function setStrategyFeeRate(uint256 strategyFeeRate_)
         external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins onlyActive
     {
+        address strategyVault_ = strategyVault;
+
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MBS:SSFR:INVALID_STRATEGY_FEE_RATE");
 
-        _accrueFees(strategyVault);
+        _accrueFees(strategyVault_);
 
-        strategyFeeRate = strategyFeeRate_;
+        lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);
+        strategyFeeRate         = strategyFeeRate_;
 
         emit StrategyFeeRateSet(strategyFeeRate_);
     }
@@ -135,10 +147,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         }
 
         uint256 currentTotalAssets_ = _currentTotalAssets(strategyVault);
-        uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
 
-        // TODO: Confirm if we need to account for possible underflows.
-        assetsUnderManagement_ = currentTotalAssets_ > currentAccruedFees_ ? currentTotalAssets_ - currentAccruedFees_ : 0;
+        assetsUnderManagement_ = currentTotalAssets_ - _currentAccruedFees(currentTotalAssets_);
     }
 
     function unrealizedLosses() external view override returns (uint256 unrealizedLosses_) {
@@ -152,24 +162,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     /**************************************************************************************************************************************/
 
     function _accrueFees(address strategyVault_) internal {
-        uint256 currentTotalAssets_      = _currentTotalAssets(strategyVault_);
-        uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
-        uint256 strategyFeeRate_         = strategyFeeRate;
-
-        // No fees to accrue if TotalAssets has decreased or fee rate is zero.
-        if (currentTotalAssets_ <= lastRecordedTotalAssets_ || strategyFeeRate_ == 0) {
-            // Record currentTotalAssets
-            lastRecordedTotalAssets = currentTotalAssets_;
-            return;
-        }
-
-        // Yield accrued since last collection.
-        // Can't underflow due to check above.
-        uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
-
-        // Calculate strategy fee.
-        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
-        uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
+        uint256 currentTotalAssets_ = _currentTotalAssets(strategyVault_);
+        uint256 strategyFee_        = _currentAccruedFees(currentTotalAssets_);
 
         // Withdraw the fees from the strategy vault.
         if (strategyFee_ != 0) {
@@ -177,10 +171,6 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
 
             emit StrategyFeesCollected(strategyFee_);
         }
-
-        // Record the TotalAssets
-        // Can't underflow as `strategyFee_` is <= `currentTotalAssets_`.
-        lastRecordedTotalAssets = currentTotalAssets_ - strategyFee_;
     }
 
     function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
@@ -192,11 +182,9 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
             return 0;
         }
 
-        // Yield accrued since last collection.
         // Can't underflow due to check above.
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
-        // Calculate strategy fee.
         // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
     }
@@ -207,12 +195,12 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         currentTotalAssets_ = IERC4626Like(strategyVault_).convertToAssets(currentTotalShares_);
     }
 
-    function _setLock(uint256 lock_) internal override {
-        locked = lock_;
-    }
-
     function _locked() internal view override returns (uint256) {
         return locked;
+    }
+
+    function _setLock(uint256 lock_) internal override {
+        locked = lock_;
     }
 
     function _strategyState() internal view override returns (StrategyState) {

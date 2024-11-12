@@ -46,9 +46,10 @@ interface IMapleStrategy {
     event StrategyImpaired();
 
     /**
-     *  @dev Emitted when the strategy is reactivated.
+     *  @dev   Emitted when the strategy is reactivated.
+     *  @param updateAccounting Flag that defines if lastRecordedTotalAssets should be refreshed.
      */
-    event StrategyReactivated();
+    event StrategyReactivated(bool updateAccounting);
 
     /**
      *  @dev   Emitted when assets are withdrawn from the strategy.

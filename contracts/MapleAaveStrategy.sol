@@ -16,7 +16,29 @@ import { MapleAaveStrategyStorage } from "./proxy/aaveStrategy/MapleAaveStrategy
 
 import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
-// TODO: Add more state variable caching.
+/*
+███╗   ███╗ █████╗ ██████╗ ██╗     ███████╗
+████╗ ████║██╔══██╗██╔══██╗██║     ██╔════╝
+██╔████╔██║███████║██████╔╝██║     █████╗
+██║╚██╔╝██║██╔══██║██╔═══╝ ██║     ██╔══╝
+██║ ╚═╝ ██║██║  ██║██║     ███████╗███████╗
+╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝
+
+ █████╗  █████╗ ██╗   ██╗███████╗
+██╔══██╗██╔══██╗██║   ██║██╔════╝
+███████║███████║██║   ██║█████╗
+██╔══██║██╔══██║╚██╗ ██╔╝██╔══╝
+██║  ██║██║  ██║ ╚████╔╝ ███████╗
+╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝
+
+███████╗████████╗██████╗  █████╗ ████████╗███████╗ ██████╗██╗   ██╗
+██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔════╝╚██╗ ██╔╝
+███████╗   ██║   ██████╔╝███████║   ██║   █████╗  ██║  ███╗╚████╔╝
+╚════██║   ██║   ██╔══██╗██╔══██║   ██║   ██╔══╝  ██║   ██║ ╚██╔╝
+███████║   ██║   ██║  ██║██║  ██║   ██║   ███████╗╚██████╔╝  ██║
+╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝   ╚═╝
+*/
+
 contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAaveStrategyStorage {
 
     uint256 public constant HUNDRED_PERCENT = 1e6;
@@ -34,11 +56,11 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
 
         _accrueFees(aavePool_, aaveToken_, fundsAsset_);
 
-        lastRecordedTotalAssets += assetsIn_;
-
         IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 
         IAavePoolLike(aavePool_).supply(fundsAsset_, assetsIn_, address(this), 0);
+
+        lastRecordedTotalAssets = _currentTotalAssets(aaveToken_);
 
         emit StrategyFunded(assetsIn_);
     }
@@ -47,18 +69,23 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         require(assetsOut_ > 0, "MAS:WFS:ZERO_ASSETS");
 
         address aavePool_   = aavePool;
+        address aaveToken_  = aaveToken;
         address fundsAsset_ = fundsAsset;
 
+        bool isStrategyActive_ = _strategyState() == StrategyState.Active;
+
         // Strategy only accrues fees when it is active.
-        if (_strategyState() == StrategyState.Active) {
+        if (isStrategyActive_) {
             require(assetsOut_ <= assetsUnderManagement(), "MAS:WFS:LOW_ASSETS");
 
-            _accrueFees(aavePool_, aaveToken, fundsAsset_);
-
-            lastRecordedTotalAssets -= assetsOut_;
+            _accrueFees(aavePool_, aaveToken_, fundsAsset_);
         }
 
         IAavePoolLike(aavePool_).withdraw(fundsAsset_, assetsOut_, pool);
+
+        if (isStrategyActive_) {
+            lastRecordedTotalAssets = _currentTotalAssets(aaveToken_);
+        }
 
         emit StrategyWithdrawal(assetsOut_);
     }
@@ -94,7 +121,7 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
 
         strategyState = StrategyState.Active;
 
-        emit StrategyReactivated();
+        emit StrategyReactivated(updateAccounting_);
     }
 
     function setStrategyFeeRate(uint256 strategyFeeRate_)
@@ -102,9 +129,12 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     {
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MAS:SSFR:INVALID_FEE_RATE");
 
-        _accrueFees(aavePool, aaveToken, fundsAsset);
+        address aaveToken_ = aaveToken;
 
-        strategyFeeRate = strategyFeeRate_;
+        _accrueFees(aavePool, aaveToken_, fundsAsset);
+
+        lastRecordedTotalAssets = _currentTotalAssets(aaveToken_);
+        strategyFeeRate         = strategyFeeRate_;
 
         emit StrategyFeeRateSet(strategyFeeRate_);
     }
@@ -120,10 +150,8 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
         }
 
         uint256 currentTotalAssets_ = _currentTotalAssets(aaveToken);
-        uint256 currentAccruedFees_ = _currentAccruedFees(currentTotalAssets_);
 
-        // TODO: Confirm if we need to account for possible underflows.
-        assetsUnderManagement_ = currentTotalAssets_ > currentAccruedFees_ ? currentTotalAssets_ - currentAccruedFees_ : 0;
+        assetsUnderManagement_ = currentTotalAssets_ - _currentAccruedFees(currentTotalAssets_);
     }
 
     function unrealizedLosses() external view override returns (uint256 unrealizedLosses_) {
@@ -137,24 +165,8 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     /**************************************************************************************************************************************/
 
     function _accrueFees(address aavePool_, address aaveToken_, address fundsAsset_) internal {
-        uint256 currentTotalAssets_      = _currentTotalAssets(aaveToken_);
-        uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
-        uint256 strategyFeeRate_         = strategyFeeRate;
-
-        // No fees to accrue if TotalAssets has decreased or fee rate is zero.
-        if (currentTotalAssets_ <= lastRecordedTotalAssets_ || strategyFeeRate_ == 0) {
-            // Record currentTotalAssets
-            lastRecordedTotalAssets = currentTotalAssets_;
-            return;
-        }
-
-        // Yield accrued since last collection.
-        // Can't underflow due to check above.
-        uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
-
-        // Calculate strategy fee.
-        // It is acknowledged that `strategyFee_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
-        uint256 strategyFee_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
+        uint256 currentTotalAssets_ = _currentTotalAssets(aaveToken_);
+        uint256 strategyFee_        = _currentAccruedFees(currentTotalAssets_);
 
         // Withdraw the fees from the strategy vault.
         if (strategyFee_ > 0) {
@@ -162,10 +174,6 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
 
             emit StrategyFeesCollected(strategyFee_);
         }
-
-        // Record the TotalAssets
-        // Can't underflow as `strategyFee_` is <= `currentTotalAssets_`.
-        lastRecordedTotalAssets = currentTotalAssets_ - strategyFee_;
     }
 
     function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
@@ -177,11 +185,9 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
             return 0;
         }
 
-        // Yield accrued since last collection.
         // Can't underflow due to check above.
         uint256 yieldAccrued_ = currentTotalAssets_ - lastRecordedTotalAssets_;
 
-        // Calculate strategy fee.
         // It is acknowledged that `currentAccruedFees_` may be rounded down to 0 if `yieldAccrued_ * strategyFeeRate_ < HUNDRED_PERCENT`.
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
     }

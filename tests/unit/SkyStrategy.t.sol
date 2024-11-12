@@ -471,7 +471,7 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
         vm.prank(strategyManager);
         strategy.fundStrategy(usdcAmount);
 
-        assertEq(strategy.lastRecordedTotalAssets(), _gemForUsds(usdsAmount));
+        assertEq(strategy.lastRecordedTotalAssets(), strategyHarness.__currentTotalAssets());
     }
 
     function test_fund_successWithPoolDelegate() external {
@@ -501,7 +501,7 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
         vm.startPrank(poolDelegate);
         strategy.fundStrategy(usdcAmount);
 
-        assertEq(strategy.lastRecordedTotalAssets(), _gemForUsds(usdsAmount));
+        assertEq(strategy.lastRecordedTotalAssets(), strategyHarness.__currentTotalAssets());
     }
 
 }
@@ -595,7 +595,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
         vm.prank(poolDelegate);
         strategy.withdrawFromStrategy(assets);
 
-        assertEq(strategy.lastRecordedTotalAssets(), 0);
+        assertEq(strategy.lastRecordedTotalAssets(), strategyHarness.__currentTotalAssets());
     }
 
     function test_withdraw_successWithStrategyManager() external {
@@ -630,7 +630,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
         vm.prank(strategyManager);
         strategy.withdrawFromStrategy(assets);
 
-        assertEq(strategy.lastRecordedTotalAssets(), 0);
+        assertEq(strategy.lastRecordedTotalAssets(), strategyHarness.__currentTotalAssets());
     }
 
     function test_withdraw_successWhenImpaired() external {
@@ -699,6 +699,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
 }
 
+// TODO: Do these tests make sense post refactor as the accrueFees function doesn't change lastRecordedTotalAssets?
 contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
     MapleSkyStrategyHarness strategyHarness;
@@ -726,7 +727,6 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
         strategyHarness.__accrueFees();
 
         assertEq(strategyHarness.strategyFeeRate(),         0);
-        assertEq(strategyHarness.lastRecordedTotalAssets(), 0);
     }
 
     function test_accrueFees_totalAssetsDecreased() external {
@@ -743,9 +743,8 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         strategyHarness.__accrueFees();
 
-        assertEq(strategyHarness.strategyFeeRate(),         1500);
-        assertEq(currentTotalAssets(),                    0);
-        assertEq(strategyHarness.lastRecordedTotalAssets(), 0);
+        assertEq(strategyHarness.strategyFeeRate(), 1500);
+        assertEq(currentTotalAssets(),              0);
     }
 
     function test_accrueFees_zeroStrategyFeeRate_totalAssetsIncreased() external {
@@ -765,9 +764,8 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         strategyHarness.__accrueFees();
 
-        assertEq(strategyHarness.strategyFeeRate(),         0);
-        assertEq(currentTotalAssets(),                      _gemForUsds(1e18));
-        assertEq(strategyHarness.lastRecordedTotalAssets(), _gemForUsds(1e18));
+        assertEq(strategyHarness.strategyFeeRate(), 0);
+        assertEq(currentTotalAssets(),              _gemForUsds(1e18));
     }
 
     function test_accrueFees_strategyFeeRoundedDown() external {
@@ -786,8 +784,6 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
         );
 
         strategyHarness.__accrueFees();
-
-        assertEq(strategyHarness.lastRecordedTotalAssets(), _gemForUsds(1e18 + 100));
     }
 
     function test_accrueFees_strategyFeeOneHundredPercent() external {
@@ -820,8 +816,6 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
         );
 
         strategyHarness.__accrueFees();
-
-        assertEq(strategyHarness.lastRecordedTotalAssets(), 1e6);
     }
 
     function test_accrueFees_totalAssetsIncreased() external {
@@ -859,8 +853,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         strategyHarness.__accrueFees();
 
-        assertEq(strategyHarness.strategyFeeRate(),         1500);
-        assertEq(strategyHarness.lastRecordedTotalAssets(), _gemForUsds(3e18) - strategyFee);
+        assertEq(strategyHarness.strategyFeeRate(), 1500);
     }
 
 }
@@ -1037,8 +1030,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
         vm.prank(poolDelegate);
         strategyHarness.setStrategyFeeRate(1500);
 
-        assertEq(strategyHarness.strategyFeeRate(),         1500);
-        assertEq(strategyHarness.lastRecordedTotalAssets(), 3e6 - strategyFee);
+        assertEq(strategyHarness.strategyFeeRate(), 1500);
     }
 
     function test_setStrategyFeeRate_nonZeroPriorFeeRate_totalAssetsIncreasedWithTout() external {
@@ -1090,8 +1082,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
         vm.prank(poolDelegate);
         strategyHarness.setStrategyFeeRate(1500);
 
-        assertEq(strategyHarness.strategyFeeRate(),         1500);
-        assertEq(strategyHarness.lastRecordedTotalAssets(), _gemForUsds(3e18) - strategyFee);
+        assertEq(strategyHarness.strategyFeeRate(), 1500);
     }
 
 }
@@ -1313,7 +1304,7 @@ contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
         strategyHarness.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(false);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(false);
@@ -1326,7 +1317,7 @@ contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
         strategyHarness.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(true);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(true);
@@ -1339,7 +1330,7 @@ contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
         strategyHarness.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(false);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(false);
@@ -1352,7 +1343,7 @@ contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
         strategyHarness.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(true);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(true);

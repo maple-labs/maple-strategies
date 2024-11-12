@@ -20,17 +20,17 @@ import { MapleBasicStrategyStorage } from "./MapleBasicStrategyStorage.sol";
 contract MapleBasicStrategyInitializer is IMapleBasicStrategyInitializer, MapleBasicStrategyStorage, MapleProxiedInternals {
 
     fallback() external {
-        ( address pool_, address strategyVault_ ) = abi.decode(msg.data, (address, address));
+        ( address poolManager_, address strategyVault_ ) = abi.decode(msg.data, (address, address));
 
-        _initialize(pool_, strategyVault_);
+        _initialize(poolManager_, strategyVault_);
     }
 
-    function _initialize(address pool_, address strategyVault_) internal {
-        require(pool_ != address(0), "MBSI:ZERO_POOL");
+    function _initialize(address poolManager_, address strategyVault_) internal {
+        require(poolManager_ != address(0), "MBSI:ZERO_POOL_MANAGER");
 
-        address globals_     = IMapleProxyFactoryLike(msg.sender).mapleGlobals();
-        address poolManager_ = IPoolLike(pool_).manager();
-        address factory_     = IPoolManagerLike(poolManager_).factory();
+        address globals_ = IMapleProxyFactoryLike(msg.sender).mapleGlobals();
+        address pool_    = IPoolManagerLike(poolManager_).pool();
+        address factory_ = IPoolManagerLike(poolManager_).factory();
 
         require(IGlobalsLike(globals_).isInstanceOf("POOL_MANAGER_FACTORY", factory_), "MBSI:I:INVALID_PM_FACTORY");
         require(IMapleProxyFactoryLike(factory_).isInstance(poolManager_),             "MBSI:I:INVALID_PM");

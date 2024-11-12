@@ -318,6 +318,9 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
     }
 
     function test_fund_successWithPoolDelegate() external {
+        vault.__setBalanceOf(address(strategy), 1e6);
+        vault.__setExchangeRate(1);
+
         vm.expectEmit();
         emit StrategyFunded(1e6);
 
@@ -340,6 +343,9 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
     function test_fund_successWithStrategyManager() external {
         assertEq(globals.isInstanceOf("STRATEGY_MANAGER", strategyManager), true);
+
+        vault.__setBalanceOf(address(strategy), 1e6);
+        vault.__setExchangeRate(1);
 
         vm.expectEmit();
         emit StrategyFunded(1e6);
@@ -449,7 +455,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         vm.prank(poolDelegate);
         strategy.withdrawFromStrategy(assetsOut);
 
-        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
+        assertEq(strategy.lastRecordedTotalAssets(), basicStrategy.__currentTotalAssets());
     }
 
     function test_withdrawFromStrategy_successWithStrategyManager() external {
@@ -484,7 +490,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         vm.prank(strategyManager);
         strategy.withdrawFromStrategy(assetsOut);
 
-        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
+        assertEq(strategy.lastRecordedTotalAssets(), basicStrategy.__currentTotalAssets());
     }
 
     function test_withdrawFromStrategy_successWhenImpaired() external {
@@ -543,6 +549,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
 }
 
+// TODO: Do these tests make sense post refactor as the accrueFees function doesn't change lastRecordedTotalAssets?
 contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
     MapleBasicStrategyHarness basicStrategy;
@@ -570,7 +577,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
         basicStrategy.__accrueFees(address(vault));
 
         assertEq(basicStrategy.strategyFeeRate(),         0);
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
     }
 
     function test_accrueFees_totalAssetsDecreased() external {
@@ -589,7 +595,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         assertEq(basicStrategy.strategyFeeRate(),         1500);
         assertEq(currentTotalAssets(),                    0);
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 0);
     }
 
     function test_accrueFees_zeroStrategyFeeRate_totalAssetsUnchanged() external {
@@ -612,7 +617,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         assertEq(basicStrategy.strategyFeeRate(),         0);
         assertEq(currentTotalAssets(),                    1e6);
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e6);
     }
 
     function test_accrueFees_zeroStrategyFeeRate_totalAssetsIncreased() external {
@@ -634,7 +638,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         assertEq(basicStrategy.strategyFeeRate(),         0);
         assertEq(currentTotalAssets(),                    1e6);
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 1e6);
     }
 
     function test_accrueFees_strategyFeeRoundedDown() external {
@@ -653,8 +656,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
         );
 
         basicStrategy.__accrueFees(address(vault));
-
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 101);
     }
 
     function test_accrueFees_strategyFeeOneHundredPercent() external {
@@ -682,8 +683,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
         );
 
         basicStrategy.__accrueFees(address(vault));
-
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 100);
     }
 
     function test_accrueFees_totalAssetsIncreased() external {
@@ -714,7 +713,6 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
         basicStrategy.__accrueFees(address(vault));
 
         assertEq(basicStrategy.strategyFeeRate(),         1500);
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 3e6 - strategyFee);
     }
 
 }
@@ -847,8 +845,7 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
         vm.prank(poolDelegate);
         basicStrategy.setStrategyFeeRate(1500);
 
-        assertEq(basicStrategy.strategyFeeRate(),         1500);
-        assertEq(basicStrategy.lastRecordedTotalAssets(), 3e6 - strategyFee);
+        assertEq(basicStrategy.strategyFeeRate(), 1500);
     }
 
 }
@@ -1071,7 +1068,7 @@ contract MapleBasicStrategyReactivateStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(false);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(false);
@@ -1084,7 +1081,7 @@ contract MapleBasicStrategyReactivateStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(true);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(true);
@@ -1097,7 +1094,7 @@ contract MapleBasicStrategyReactivateStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(false);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(false);
@@ -1110,7 +1107,7 @@ contract MapleBasicStrategyReactivateStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(true);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(true);

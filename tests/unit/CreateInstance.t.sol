@@ -26,7 +26,7 @@ contract MapleBasicStrategyCreateInstanceTests is BasicStrategyTestBase {
     }
 
     function test_createInstance_invalidCaller() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault));
 
         globals.__setCanDeploy(false);
 
@@ -46,7 +46,7 @@ contract MapleBasicStrategyCreateInstanceTests is BasicStrategyTestBase {
     }
 
     function test_createInstance_invalidFactory() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault));
 
         globals.__setIsInstanceOf(false);
 
@@ -55,7 +55,7 @@ contract MapleBasicStrategyCreateInstanceTests is BasicStrategyTestBase {
     }
 
     function test_createInstance_invalidInstance() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault));
 
         poolManagerFactory.__setIsInstance(false);
 
@@ -66,14 +66,14 @@ contract MapleBasicStrategyCreateInstanceTests is BasicStrategyTestBase {
     function test_createInstance_invalidStrategyAsset() external {
         vault = new MockVault(address(0));
 
-        bytes memory calldata_ = abi.encode(address(pool), address(vault));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault));
 
         vm.expectRevert("MPF:CI:FAILED");
         factory.createInstance(calldata_, "SALT");
     }
 
     function test_createInstance_success() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault));
 
         vm.expectEmit();
         emit Initialized(address(pool), address(poolManager), address(vault));
@@ -113,7 +113,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_invalidCaller() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         globals.__setCanDeploy(false);
 
@@ -133,7 +133,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_invalidFactory() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         globals.__setIsInstanceOf(false);
 
@@ -142,7 +142,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_invalidInstance() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         poolManagerFactory.__setIsInstance(false);
 
@@ -151,21 +151,21 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_invalidSavingsUsds() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(0), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(0), address(psm));
 
         vm.expectRevert("MPF:CI:FAILED");
         factory.createInstance(calldata_, "SALT");
     }
 
     function test_createInstance_invalidPSM() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(0));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(0));
 
         vm.expectRevert("MPF:CI:FAILED");
         factory.createInstance(calldata_, "SALT");
     }
 
     function test_createInstance_nonAuthorizedPSM() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         globals.__setIsInstanceOf(false);
 
@@ -174,7 +174,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_invalidGemPSM() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         psm.__setGem(address(makeAddr("newGem")));
 
@@ -183,7 +183,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_invalidUsdsPSM() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         psm.__setUsds(address(makeAddr("newUsds")));
 
@@ -192,7 +192,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
     }
 
     function test_createInstance_success() external {
-        bytes memory calldata_ = abi.encode(address(pool), address(vault), address(psm));
+        bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         vm.expectEmit();
         emit Initialized(address(pool), address(vault), address(psm), address(poolManager), address(usds));
@@ -236,7 +236,7 @@ contract MapleAaveStrategyCreateInstanceTests is AaveStrategyTestBase {
         globals.__setCanDeploy(false);
 
         vm.expectRevert("MSF:CI:CANNOT_DEPLOY");
-        factory.createInstance(abi.encode(address(pool), address(aaveToken)), salt);
+        factory.createInstance(abi.encode(address(poolManager), address(aaveToken)), salt);
     }
 
     function test_createInstance_zeroPool() external {
@@ -246,21 +246,21 @@ contract MapleAaveStrategyCreateInstanceTests is AaveStrategyTestBase {
 
     function test_createInstance_zeroAaveToken() external {
         vm.expectRevert("MPF:CI:FAILED");
-        factory.createInstance(abi.encode(address(pool), address(0)), salt);
+        factory.createInstance(abi.encode(address(poolManager), address(0)), salt);
     }
 
     function test_createInstance_invalidPoolManagerFactory() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MPF:CI:FAILED");
-        factory.createInstance(abi.encode(address(pool), address(aaveToken)), salt);
+        factory.createInstance(abi.encode(address(poolManager), address(aaveToken)), salt);
     }
 
     function test_createInstance_invalidPoolManagerInstance() external {
         poolManagerFactory.__setIsInstance(false);
 
         vm.expectRevert("MPF:CI:FAILED");
-        factory.createInstance(abi.encode(address(pool), address(aaveToken)), salt);
+        factory.createInstance(abi.encode(address(poolManager), address(aaveToken)), salt);
     }
 
     // TODO: Update `MapleGlobalsMock` to simulate this test case.
@@ -275,7 +275,7 @@ contract MapleAaveStrategyCreateInstanceTests is AaveStrategyTestBase {
         aaveToken.__setUnderlyingAsset(address(1337));
 
         vm.expectRevert("MPF:CI:FAILED");
-        factory.createInstance(abi.encode(address(pool), address(aaveToken)), salt);
+        factory.createInstance(abi.encode(address(poolManager), address(aaveToken)), salt);
     }
 
     function test_createInstance_success() external {
@@ -283,7 +283,7 @@ contract MapleAaveStrategyCreateInstanceTests is AaveStrategyTestBase {
         emit Initialized(address(aavePool), address(aaveToken), address(pool), address(asset), address(poolManager));
 
         MapleAaveStrategy strategy_ = MapleAaveStrategy(factory.createInstance(
-            abi.encode(address(pool), address(aaveToken)),
+            abi.encode(address(poolManager), address(aaveToken)),
             salt
         ));
 

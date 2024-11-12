@@ -260,6 +260,8 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
     }
 
     function test_fundStrategy_successWithPoolDelegate() external {
+        aaveToken.__setCurrentTotalAssets(assets);
+
         vm.expectEmit();
         emit StrategyFunded(assets);
 
@@ -280,6 +282,8 @@ contract MapleAaveStrategyFundStrategyTests is AaveStrategyTestBase {
     }
 
     function test_fundStrategy_successWithStrategyManager() external {
+        aaveToken.__setCurrentTotalAssets(assets);
+
         vm.expectEmit();
         emit StrategyFunded(assets);
 
@@ -367,7 +371,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
         vm.prank(poolDelegate);
         strategy.withdrawFromStrategy(assetsOut);
 
-        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
+        assertEq(strategy.lastRecordedTotalAssets(), strategy.__currentTotalAssets());
     }
 
     function test_withdrawFromStrategy_successWithStrategyManager() external {
@@ -392,7 +396,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
         vm.prank(strategyManager);
         strategy.withdrawFromStrategy(assetsOut);
 
-        assertEq(strategy.lastRecordedTotalAssets(), totalAssets - assetsOut);
+        assertEq(strategy.lastRecordedTotalAssets(), strategy.__currentTotalAssets());
     }
 
     function test_withdrawFromStrategy_successWhenImpaired() external {
@@ -564,7 +568,6 @@ contract MapleAaveStrategySetStrategyFeeRateTests is AaveStrategyTestBase {
         vm.prank(governor);
         strategy.setStrategyFeeRate(newFeeRate);
 
-        assertEq(strategy.lastRecordedTotalAssets(), balance + gain * (1e6 - oldFeeRate) / 1e6);
         assertEq(strategy.strategyFeeRate(),         newFeeRate);
     }
 
@@ -582,7 +585,6 @@ contract MapleAaveStrategySetStrategyFeeRateTests is AaveStrategyTestBase {
         vm.prank(governor);
         strategy.setStrategyFeeRate(newFeeRate);
 
-        assertEq(strategy.lastRecordedTotalAssets(), balance);
         assertEq(strategy.strategyFeeRate(),         newFeeRate);
     }
 
@@ -648,6 +650,8 @@ contract MapleAaveStrategySetStrategyFeeRateTests is AaveStrategyTestBase {
 
 }
 
+
+// TODO: Do these tests make sense post refactor as the accrueFees function doesn't change lastRecordedTotalAssets?
 contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
     uint256 balance = 8_500_000e6;
@@ -662,8 +666,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), 0);
     }
 
     function test_accrueFees_unfundedStrategy_realisticFeeRate() external {
@@ -673,8 +675,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), 0);
     }
 
     function test_accrueFees_minimumGain_zeroFeeRate() external {
@@ -684,8 +684,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance + 1);
     }
 
     function test_accrueFees_minimumGain_realisticFeeRate() external {
@@ -695,8 +693,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance + 1);
     }
 
     function test_accrueFees_normalGain_zeroFeeRate() external {
@@ -706,8 +702,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance + gain);
     }
 
     function test_accrueFees_normalGain_realisticFeeRate() external {
@@ -720,8 +714,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance + gain * (1e6 - feeRate) / 1e6);
     }
 
     function test_accrueFees_normalGain_minimumFeeRate() external {
@@ -734,8 +726,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance + gain * (1e6 - 1) / 1e6);
     }
 
     function test_accrueFees_normalGain_maximumFeeRate() external {
@@ -748,8 +738,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance);
     }
 
     function test_accrueFees_minimumLoss_zeroFeeRate() external {
@@ -759,8 +747,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance - 1);
     }
 
     function test_accrueFees_minimumLoss_realisticFeeRate() external {
@@ -770,8 +756,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance - 1);
     }
 
     function test_accrueFees_normalLoss_zeroFeeRate() external {
@@ -781,8 +765,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance - loss);
     }
 
     function test_accrueFees_normalLoss_realisticFeeRate() external {
@@ -792,8 +774,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), balance - loss);
     }
 
     function test_accrueFees_totalLoss_zeroFeeRate() external {
@@ -803,8 +783,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), 0);
     }
 
     function test_accrueFees_totalLoss_realisticFeeRate() external {
@@ -814,8 +792,6 @@ contract MapleAaveStrategyAccrueFeesTests is AaveStrategyTestBase {
 
         vm.prank(governor);
         strategy.__accrueFees(address(aavePool), address(aaveToken), address(asset));
-
-        assertEq(strategy.lastRecordedTotalAssets(), 0);
     }
 
 }
@@ -1013,7 +989,7 @@ contract MapleAaveStrategyReactivateStrategyTests is AaveStrategyTestBase {
         strategy.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(false);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(false);
@@ -1026,7 +1002,7 @@ contract MapleAaveStrategyReactivateStrategyTests is AaveStrategyTestBase {
         strategy.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(true);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(true);
@@ -1039,7 +1015,7 @@ contract MapleAaveStrategyReactivateStrategyTests is AaveStrategyTestBase {
         strategy.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(false);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(false);
@@ -1052,7 +1028,7 @@ contract MapleAaveStrategyReactivateStrategyTests is AaveStrategyTestBase {
         strategy.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyReactivated();
+        emit StrategyReactivated(true);
 
         vm.prank(poolDelegate);
         strategy.reactivateStrategy(true);
