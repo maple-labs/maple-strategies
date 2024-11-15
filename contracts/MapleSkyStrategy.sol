@@ -66,11 +66,11 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         // NOTE: Assume Gem asset and USDS are interchangeable 1:1 for the purposes of Pool Accounting
         uint256 usdsOut_ = IPSMLike(psm_).sellGem(address(this), assetsIn_);
 
-        IERC4626Like(savingsUsds_).deposit(usdsOut_, address(this));
+        uint256 shares_ = IERC4626Like(savingsUsds_).deposit(usdsOut_, address(this));
 
         lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
 
-        emit StrategyFunded(assetsIn_);
+        emit StrategyFunded(assetsIn_, shares_);
     }
 
     function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
@@ -87,13 +87,13 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
             _accrueFees(psm_, savingsUsds_);
         }
 
-        _withdraw(psm_, savingsUsds_, assetsOut_, pool);
+        uint256 shares_ = _withdraw(psm_, savingsUsds_, assetsOut_, pool);
 
         if (isStrategyActive_) {
             lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
         }
 
-        emit StrategyWithdrawal(assetsOut_);
+        emit StrategyWithdrawal(assetsOut_, shares_);
     }
 
     /**************************************************************************************************************************************/
@@ -133,7 +133,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     function setStrategyFeeRate(uint256 strategyFeeRate_)
         external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins onlyActive
     {
-        require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_STRATEGY_FEE_RATE");
+        require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_FEE_RATE");
 
         address savingsUsds_ = savingsUsds;
 
@@ -168,7 +168,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     /**************************************************************************************************************************************/
-    /*** Internal Functions                                                                                                             ***/
+    /*** Internal Helpers                                                                                                               ***/
     /**************************************************************************************************************************************/
 
     function _accrueFees(address psm_, address savingsUsds_) internal {
@@ -182,6 +182,23 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
             emit StrategyFeesCollected(strategyFee_);
         }
     }
+
+    function _setLock(uint256 lock_) internal override {
+        locked = lock_;
+    }
+
+    function _withdraw(address psm_, address savingsUsds_, uint256 assets_, address destination_) internal returns (uint256 shares_) {
+        uint256 requiredUsds_ = _usdsForGem(assets_);
+
+        shares_ = IERC4626Like(savingsUsds_).withdraw(requiredUsds_, address(this), address(this));
+
+        // There might be some USDS left over in this contract due to rounding.
+        IPSMLike(psm_).buyGem(destination_, assets_);
+    }
+
+    /**************************************************************************************************************************************/
+    /*** Internal View Functions                                                                                                        ***/
+    /**************************************************************************************************************************************/
 
     function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
@@ -199,6 +216,10 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
     }
 
+    function _currentTotalAssets(address savingsUsds_) internal view returns (uint256) {
+        return _gemForUsds(IERC4626Like(savingsUsds_).convertToAssets(IERC20Like(savingsUsds_).balanceOf(address(this))));
+    }
+
     function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
         uint256 tout                 = IPSMLike(psm).tout();
         uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
@@ -207,37 +228,20 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         gemAmount_ = (usdsAmount_ * WAD) / (to18ConversionFactor * (WAD + tout));
     }
 
+    function _locked() internal view override returns (uint256) {
+        return locked;
+    }
+
+    function _strategyState() internal view override returns (StrategyState) {
+        return strategyState;
+    }
+
     function _usdsForGem(uint256 gemAmount_) internal view returns (uint256 usdsAmount_) {
         uint256 tout                 = IPSMLike(psm).tout();
         uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
 
         // Inverse of `_gemForUsds(usdsAmount_)`
         usdsAmount_ = (gemAmount_  * to18ConversionFactor * (WAD + tout)) / WAD;
-    }
-
-    function _currentTotalAssets(address savingsUsds_) internal view returns (uint256) {
-        return _gemForUsds(IERC4626Like(savingsUsds_).convertToAssets(IERC20Like(savingsUsds_).balanceOf(address(this))));
-    }
-
-    function _withdraw(address psm_, address savingsUsds_, uint256 assets_, address destination_) internal {
-        uint256 requiredUsds_ = _usdsForGem(assets_);
-
-        IERC4626Like(savingsUsds_).withdraw(requiredUsds_, address(this), address(this));
-
-        // There might be some USDS left over in this contract due to rounding.
-        IPSMLike(psm_).buyGem(destination_, assets_);
-    }
-
-    function _locked() internal view override returns (uint256) {
-        return locked;
-    }
-
-    function _setLock(uint256 lock_) internal override {
-        locked = lock_;
-    }
-
-    function _strategyState() internal view override returns (StrategyState) {
-        return strategyState;
     }
 
     /**************************************************************************************************************************************/

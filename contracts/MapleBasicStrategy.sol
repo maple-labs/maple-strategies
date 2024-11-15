@@ -51,20 +51,20 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
         address strategyVault_ = strategyVault;
 
-        require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBS:FS:INVALID_STRATEGY_VAULT");
+        require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBS:FS:INVALID_VAULT");
 
         _accrueFees(strategyVault_);
 
         IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 
-        IERC4626Like(strategyVault_).deposit(assetsIn_, address(this));
+        uint256 shares_ = IERC4626Like(strategyVault_).deposit(assetsIn_, address(this));
 
         lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);
 
-        emit StrategyFunded(assetsIn_);
+        emit StrategyFunded(assetsIn_, shares_);
     }
 
-    function withdrawFromStrategy(uint256 assetsOut_) public override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
         require(assetsOut_ > 0, "MBS:WFS:ZERO_ASSETS");
 
         address strategyVault_ = strategyVault;
@@ -78,13 +78,13 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
             _accrueFees(strategyVault_);
         }
 
-        IERC4626Like(strategyVault_).withdraw(assetsOut_, address(pool), address(this));
+        uint256 shares_ = IERC4626Like(strategyVault_).withdraw(assetsOut_, address(pool), address(this));
 
         if (isStrategyActive_) {
             lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);
         }
 
-        emit StrategyWithdrawal(assetsOut_);
+        emit StrategyWithdrawal(assetsOut_, shares_);
     }
 
     /**************************************************************************************************************************************/
@@ -126,7 +126,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     {
         address strategyVault_ = strategyVault;
 
-        require(strategyFeeRate_ <= HUNDRED_PERCENT, "MBS:SSFR:INVALID_STRATEGY_FEE_RATE");
+        require(strategyFeeRate_ <= HUNDRED_PERCENT, "MBS:SSFR:INVALID_FEE_RATE");
 
         _accrueFees(strategyVault_);
 
@@ -158,7 +158,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     }
 
     /**************************************************************************************************************************************/
-    /*** Internal Functions                                                                                                             ***/
+    /*** Internal Helpers                                                                                                               ***/
     /**************************************************************************************************************************************/
 
     function _accrueFees(address strategyVault_) internal {
@@ -172,6 +172,14 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
             emit StrategyFeesCollected(strategyFee_);
         }
     }
+
+    function _setLock(uint256 lock_) internal override {
+        locked = lock_;
+    }
+
+    /**************************************************************************************************************************************/
+    /*** Internal View Functions                                                                                                        ***/
+    /**************************************************************************************************************************************/
 
     function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
@@ -197,10 +205,6 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
 
     function _locked() internal view override returns (uint256) {
         return locked;
-    }
-
-    function _setLock(uint256 lock_) internal override {
-        locked = lock_;
     }
 
     function _strategyState() internal view override returns (StrategyState) {

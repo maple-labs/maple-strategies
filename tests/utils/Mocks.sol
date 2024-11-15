@@ -197,8 +197,8 @@ contract MockVault {
         asset = asset_;
     }
 
-    function deposit(uint256 amount_, address) external pure returns (uint256) {
-        return amount_;
+    function deposit(uint256 amount_, address) external view returns (uint256) {
+        return amount_ * exchangeRate;
     }
 
     function redeem(uint256 amount_, address, address) external pure returns (uint256) {

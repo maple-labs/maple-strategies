@@ -396,6 +396,8 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
 
         psm.__setTin(0.01e18);
         psm.__setTout(0.02e18);
+
+        vault.__setExchangeRate(1);
     }
 
     function test_fund_failReentrancy() external {
@@ -448,7 +450,7 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
         uint256 usdsAmount = usdcAmount * 1e12 * (1e18 - tin) / 1e18;
 
         vm.expectEmit();
-        emit StrategyFunded(usdcAmount);
+        emit StrategyFunded(usdcAmount, usdsAmount);
 
         // Expect call to pool manager to request funds
         vm.expectCall(
@@ -478,7 +480,7 @@ contract MapleSkyStrategyFundTests is SkyStrategyTestBase {
         uint256 usdsAmount = usdcAmount * 1e12 * (1e18 - tin) / 1e18;
 
         vm.expectEmit();
-        emit StrategyFunded(usdcAmount);
+        emit StrategyFunded(usdcAmount, usdsAmount);
 
         // Expect call to pool manager to request funds
         vm.expectCall(
@@ -570,7 +572,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
     function test_withdraw_successWithPoolDelegate() external {
         // Expect StrategyWithdrawn event
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assets, shares);
 
         vm.expectCall(
             address(globals),
@@ -600,7 +602,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
 
     function test_withdraw_successWithStrategyManager() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assets, shares);
 
         vm.expectCall(
             address(globals),
@@ -637,7 +639,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
         strategyHarness.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assets, shares);
 
         vm.expectCall(
             address(globals),
@@ -669,7 +671,7 @@ contract MapleSkyStrategyWithdrawTests is SkyStrategyTestBase {
         strategyHarness.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(assets);
+        emit StrategyWithdrawal(assets, shares);
 
         vm.expectCall(
             address(globals),
@@ -916,7 +918,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
     }
 
     function test_setStrategyFeeRate_failInvalidStrategyFeeRate() external {
-        vm.expectRevert("MSS:SSFR:INVALID_STRATEGY_FEE_RATE");
+        vm.expectRevert("MSS:SSFR:INVALID_FEE_RATE");
         vm.prank(poolDelegate);
         strategy.setStrategyFeeRate(HUNDRED_PERCENT + 1);
     }

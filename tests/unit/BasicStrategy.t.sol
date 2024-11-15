@@ -312,7 +312,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
     function test_fund_failInvalidStrategyVault() external {
         globals.__setIsInstanceOf(false);
 
-        vm.expectRevert("MBS:FS:INVALID_STRATEGY_VAULT");
+        vm.expectRevert("MBS:FS:INVALID_VAULT");
         vm.prank(poolDelegate);
         strategy.fundStrategy(1e6);
     }
@@ -322,7 +322,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         vault.__setExchangeRate(1);
 
         vm.expectEmit();
-        emit StrategyFunded(1e6);
+        emit StrategyFunded(1e6, 1e6);
 
         vm.expectCall(
             address(poolManager),
@@ -348,7 +348,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         vault.__setExchangeRate(1);
 
         vm.expectEmit();
-        emit StrategyFunded(1e6);
+        emit StrategyFunded(1e6, 1e6);
 
         vm.expectCall(
             address(poolManager),
@@ -425,7 +425,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(assetsOut);
+        emit StrategyWithdrawal(assetsOut, assetsOut);
 
         vm.expectCall(
             address(globals),
@@ -460,7 +460,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
     function test_withdrawFromStrategy_successWithStrategyManager() external {
         vm.expectEmit();
-        emit StrategyWithdrawal(assetsOut);
+        emit StrategyWithdrawal(assetsOut, assetsOut);
 
         vm.expectCall(
             address(globals),
@@ -497,7 +497,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Impaired);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(assetsOut);
+        emit StrategyWithdrawal(assetsOut, assetsOut);
 
         vm.expectCall(
             address(globals),
@@ -524,7 +524,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setStrategyState(StrategyState.Inactive);
 
         vm.expectEmit();
-        emit StrategyWithdrawal(assetsOut);
+        emit StrategyWithdrawal(assetsOut, assetsOut);
 
         vm.expectCall(
             address(globals),
@@ -775,7 +775,7 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
     }
 
     function test_setStrategyFeeRate_failInvalidStrategyFeeRate() external {
-        vm.expectRevert("MBS:SSFR:INVALID_STRATEGY_FEE_RATE");
+        vm.expectRevert("MBS:SSFR:INVALID_FEE_RATE");
         vm.prank(poolDelegate);
         strategy.setStrategyFeeRate(HUNDRED_PERCENT + 1);
     }

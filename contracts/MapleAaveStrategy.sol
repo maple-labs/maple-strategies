@@ -161,7 +161,7 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     }
 
     /**************************************************************************************************************************************/
-    /*** Internal Functions                                                                                                             ***/
+    /*** Internal Helpers                                                                                                               ***/
     /**************************************************************************************************************************************/
 
     function _accrueFees(address aavePool_, address aaveToken_, address fundsAsset_) internal {
@@ -175,6 +175,14 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
             emit StrategyFeesCollected(strategyFee_);
         }
     }
+
+    function _setLock(uint256 lock_) internal override {
+        locked = lock_;
+    }
+
+    /**************************************************************************************************************************************/
+    /*** Internal View Functions                                                                                                        ***/
+    /**************************************************************************************************************************************/
 
     function _currentAccruedFees(uint256 currentTotalAssets_) internal view returns (uint256 currentAccruedFees_) {
         uint256 lastRecordedTotalAssets_ = lastRecordedTotalAssets;
@@ -198,10 +206,6 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
 
     function _locked() internal view override returns (uint256) {
         return locked;
-    }
-
-    function _setLock(uint256 lock_) internal override {
-        locked = lock_;
     }
 
     function _strategyState() internal view override returns (StrategyState) {

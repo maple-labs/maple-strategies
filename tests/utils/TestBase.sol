@@ -79,10 +79,10 @@ contract BasicStrategyTestBase is TestBase {
     event StrategyDeactivated();
     event StrategyFeesCollected(uint256 feeAmount);
     event StrategyFeeRateSet(uint256 feeRate);
-    event StrategyFunded(uint256 assets);
+    event StrategyFunded(uint256 assetsIn, uint256 shares);
     event StrategyImpaired();
     event StrategyReactivated(bool updateAccounting);
-    event StrategyWithdrawal(uint256 assets);
+    event StrategyWithdrawal(uint256 assets, uint256 shares);
 
     MapleBasicStrategy internal strategy;
     MockVault          internal vault;
@@ -119,10 +119,10 @@ contract SkyStrategyTestBase is TestBase {
     event StrategyDeactivated();
     event StrategyFeesCollected(uint256 fee);
     event StrategyFeeRateSet(uint256 feeRate);
-    event StrategyFunded(uint256 assetsIn);
+    event StrategyFunded(uint256 assetsIn, uint256 shares);
     event StrategyImpaired();
     event StrategyReactivated(bool updateAccounting);
-    event StrategyWithdrawal(uint256 assetsOut);
+    event StrategyWithdrawal(uint256 assetsOut, uint256 shares);
 
     uint256 internal tin  = 0.01e18;
     uint256 internal tout = 0.02e18;

@@ -41,6 +41,13 @@ interface IMapleStrategy {
     event StrategyFunded(uint256 assets);
 
     /**
+     *  @dev   Emitted when assets are deposited into the strategy.
+     *  @param assets Amount of assets deposited.
+     *  @param shares Amount of shares minted.
+     */
+    event StrategyFunded(uint256 assets, uint256 shares);
+
+    /**
      *  @dev Emitted when the strategy is impaired.
      */
     event StrategyImpaired();
@@ -56,6 +63,13 @@ interface IMapleStrategy {
      *  @param assets Amount of assets withdrawn.
      */
     event StrategyWithdrawal(uint256 assets);
+
+    /**
+     *  @dev   Emitted when assets are withdrawn from the strategy.
+     *  @param assets Amount of assets withdrawn.
+     *  @param shares Amount of shares burned.
+     */
+    event StrategyWithdrawal(uint256 assets, uint256 shares);
 
     /**************************************************************************************************************************************/
     /*** Strategy Manager Functions                                                                                                     ***/
