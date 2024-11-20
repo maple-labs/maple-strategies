@@ -200,7 +200,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     function _currentTotalAssets(address strategyVault_) internal view returns (uint256 currentTotalAssets_) {
         uint256 currentTotalShares_ = IERC20Like(strategyVault_).balanceOf(address(this));
 
-        currentTotalAssets_ = IERC4626Like(strategyVault_).convertToAssets(currentTotalShares_);
+        currentTotalAssets_ = IERC4626Like(strategyVault_).previewRedeem(currentTotalShares_);
     }
 
     function _locked() internal view override returns (uint256) {

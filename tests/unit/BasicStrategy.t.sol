@@ -90,7 +90,7 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (1e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e6))
         );
 
         assertEq(basicStrategy.assetsUnderManagement(), 1e6);
@@ -108,7 +108,7 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (1e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e6))
         );
 
         assertEq(basicStrategy.assetsUnderManagement(), 1e6);
@@ -128,7 +128,7 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (5e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (5e6))
         );
 
         assertEq(basicStrategy.assetsUnderManagement(), 5e6 - strategyFee);
@@ -153,7 +153,7 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (currentTotalAssets))
+            abi.encodeCall(IERC4626Like.previewRedeem, (currentTotalAssets))
         );
 
         assertEq(basicStrategy.assetsUnderManagement(), currentTotalAssets - fee);
@@ -178,7 +178,7 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (currentTotalAssets))
+            abi.encodeCall(IERC4626Like.previewRedeem, (currentTotalAssets))
         );
 
         assertEq(basicStrategy.assetsUnderManagement(), currentTotalAssets - fee);
@@ -237,7 +237,7 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (currentTotalAssets))
+            abi.encodeCall(IERC4626Like.previewRedeem, (currentTotalAssets))
         );
 
         assertEq(basicStrategy.unrealizedLosses(), currentTotalAssets - fee);
@@ -439,12 +439,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.balanceOf, (address(strategy)))
-        );
-
-        vm.expectCall(
-            address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (totalAssets))
+            abi.encodeCall(IERC4626Like.previewRedeem, (totalAssets))
         );
 
         vm.expectCall(
@@ -474,12 +469,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.balanceOf, (address(strategy)))
-        );
-
-        vm.expectCall(
-            address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (totalAssets))
+            abi.encodeCall(IERC4626Like.previewRedeem, (totalAssets))
         );
 
         vm.expectCall(
@@ -571,7 +561,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (0))
+            abi.encodeCall(IERC4626Like.previewRedeem, (0))
         );
 
         basicStrategy.__accrueFees(address(vault));
@@ -588,7 +578,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (0))
+            abi.encodeCall(IERC4626Like.previewRedeem, (0))
         );
 
         basicStrategy.__accrueFees(address(vault));
@@ -610,7 +600,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (1e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e6))
         );
 
         basicStrategy.__accrueFees(address(vault));
@@ -631,7 +621,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (1e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e6))
         );
 
         basicStrategy.__accrueFees(address(vault));
@@ -652,7 +642,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (101))
+            abi.encodeCall(IERC4626Like.previewRedeem, (101))
         );
 
         basicStrategy.__accrueFees(address(vault));
@@ -674,7 +664,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (101))
+            abi.encodeCall(IERC4626Like.previewRedeem, (101))
         );
 
         vm.expectCall(
@@ -702,7 +692,7 @@ contract MapleBasicStrategyAccrueFeesTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (3e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (3e6))
         );
 
         vm.expectCall(
@@ -834,7 +824,7 @@ contract MapleBasicStrategySetStrategyFeeRateTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.convertToAssets, (3e6))
+            abi.encodeCall(IERC4626Like.previewRedeem, (3e6))
         );
 
         vm.expectCall(

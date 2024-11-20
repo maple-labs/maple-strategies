@@ -229,6 +229,10 @@ contract MockVault {
         return convertToAssets(balances[owner_]);
     }
 
+    function previewRedeem(uint256 shares) public view returns (uint256 assets_) {
+        assets_ = convertToAssets(shares);
+    }
+
     function __setAsset(address asset_) external {
         asset = asset_;
     }
