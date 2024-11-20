@@ -130,6 +130,12 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         emit StrategyReactivated(updateAccounting_);
     }
 
+    function setPsm(address psm_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        require(IGlobalsLike(globals()).isInstanceOf("PSM", psm_), "MSS:SPSM:INVALID_PSM");
+
+        emit PsmSet(psm = psm_);
+    }
+
     function setStrategyFeeRate(uint256 strategyFeeRate_)
         external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins onlyActive
     {

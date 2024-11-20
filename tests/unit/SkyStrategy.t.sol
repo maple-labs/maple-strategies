@@ -1345,3 +1345,71 @@ contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
     }
 
 }
+
+contract MapleSkyStrategySetPsmTests is SkyStrategyTestBase {
+
+    address newPsm;
+
+    MapleSkyStrategyHarness strategyHarness;
+
+    function setUp() public override {
+        super.setUp();
+
+        vm.etch(address(strategy), address(new MapleSkyStrategyHarness()).code);
+
+        strategyHarness = MapleSkyStrategyHarness(address(strategy));
+
+        newPsm = makeAddr("newPsm");
+    }
+
+    function test_setPsm_failReentrancy() external {
+        strategyHarness.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.setPsm(newPsm);
+    }
+
+    function test_setPsm_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.setPsm(newPsm);
+    }
+
+    function test_setPsm_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.setPsm(newPsm);
+
+        vm.prank(poolDelegate);
+        strategy.setPsm(newPsm);
+
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(governor);
+        strategy.setPsm(newPsm);
+
+        strategyHarness.__setStrategyState(StrategyState.Inactive);
+
+        vm.prank(operationalAdmin);
+        strategy.setPsm(newPsm);
+    }
+
+    function test_setPsm_failIfNotValidInstance() external {
+        globals.__setIsInstanceOf(false);
+
+        vm.expectRevert("MSS:SPSM:INVALID_PSM");
+        vm.prank(poolDelegate);
+        strategy.setPsm(newPsm);
+    }
+
+    function test_setPsm_success() external {
+        vm.expectEmit();
+        emit PsmSet(newPsm);
+
+        vm.prank(poolDelegate);
+        strategy.setPsm(newPsm);
+
+        assertEq(strategy.psm(), newPsm);
+    }
+
+}

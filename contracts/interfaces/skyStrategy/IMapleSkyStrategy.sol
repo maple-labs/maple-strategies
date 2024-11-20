@@ -8,6 +8,16 @@ import { IMapleSkyStrategyStorage } from "./IMapleSkyStrategyStorage.sol";
 interface IMapleSkyStrategy is IMapleStrategy, IMapleSkyStrategyStorage {
 
     /**************************************************************************************************************************************/
+    /*** Events                                                                                                                         ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev Emitted when the address of the Sky Peg Stability Module (PSM) contract is set.
+     *  @param psm Address of the new PSM contract.
+     */
+    event PsmSet(address indexed psm);
+
+    /**************************************************************************************************************************************/
     /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
@@ -17,5 +27,15 @@ interface IMapleSkyStrategy is IMapleStrategy, IMapleSkyStrategyStorage {
      *  @param assetsIn Amount of assets to deploy.
      */
     function fundStrategy(uint256 assetsIn) external;
+
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev   Sets the address of the Sky Peg Stability Module (PSM) contract.
+     *  @param psm Address of the new PSM contract.
+     */
+    function setPsm(address psm) external;
 
 }

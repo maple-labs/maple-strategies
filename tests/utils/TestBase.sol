@@ -116,6 +116,7 @@ contract BasicStrategyTestBase is TestBase {
 
 contract SkyStrategyTestBase is TestBase {
 
+    event PsmSet(address indexed psm);
     event StrategyDeactivated();
     event StrategyFeesCollected(uint256 fee);
     event StrategyFeeRateSet(uint256 feeRate);
