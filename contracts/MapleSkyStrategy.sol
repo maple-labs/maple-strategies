@@ -217,7 +217,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function _currentTotalAssets(address savingsUsds_) internal view returns (uint256) {
-        return _gemForUsds(IERC4626Like(savingsUsds_).convertToAssets(IERC20Like(savingsUsds_).balanceOf(address(this))));
+        return _gemForUsds(IERC4626Like(savingsUsds_).maxWithdraw(address(this)));
     }
 
     function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {

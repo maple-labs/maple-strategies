@@ -221,8 +221,12 @@ contract MockVault {
         return balances[account_];
     }
 
-    function convertToAssets(uint256 shares_) external view returns (uint256 assets_) {
+    function convertToAssets(uint256 shares_) public view returns (uint256 assets_) {
         assets_ = shares_ * exchangeRate;
+    }
+
+    function maxWithdraw(address owner_) external view returns (uint256 maxAssets_) {
+        return convertToAssets(balances[owner_]);
     }
 
     function __setAsset(address asset_) external {
