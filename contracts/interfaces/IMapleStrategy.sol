@@ -76,13 +76,6 @@ interface IMapleStrategy {
     /**************************************************************************************************************************************/
 
     /**
-     *  @dev   Deploys assets from the Maple pool into the strategy.
-     *         Funding can only be attempted when the strategy is active.
-     *  @param assetsIn Amount of assets to deploy.
-     */
-    function fundStrategy(uint256 assetsIn) external;
-
-    /**
      *  @dev   Withdraw assets from the strategy back into the Maple pool.
      *         Withdrawals can be attempted even if the strategy is impaired or inactive.
      *  @param assetsOut Amount of assets to withdraw.

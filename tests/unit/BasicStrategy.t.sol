@@ -278,35 +278,35 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         basicStrategy.__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
     }
 
     function test_fund_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
     }
 
     function test_fund_failIfNotStrategyManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
     }
 
     function test_fund_failIfInactive() external {
         basicStrategy.__setStrategyState(StrategyState.Inactive);
 
         vm.expectRevert("MS:NOT_ACTIVE");
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
     }
 
     function test_fund_failIfImpaired() external {
         basicStrategy.__setStrategyState(StrategyState.Impaired);
 
         vm.expectRevert("MS:NOT_ACTIVE");
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
     }
 
     function test_fund_failInvalidStrategyVault() external {
@@ -314,7 +314,12 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
         vm.expectRevert("MBS:FS:INVALID_VAULT");
         vm.prank(poolDelegate);
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
+    }
+
+    function test_fund_failMinimumSharesOut() external {
+        vm.expectRevert("MBS:FS:MIN_SHARES");
+        strategy.fundStrategy(1e6, 1e6 + 1);
     }
 
     function test_fund_successWithPoolDelegate() external {
@@ -336,7 +341,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
 
 
         vm.prank(poolDelegate);
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
 
         assertEq(strategy.lastRecordedTotalAssets(), 1e6);
     }
@@ -361,7 +366,7 @@ contract MapleBasicStrategyFundStrategyTests is BasicStrategyTestBase {
         );
 
         vm.prank(strategyManager);
-        strategy.fundStrategy(1e6);
+        strategy.fundStrategy(1e6, 0);
 
         assertEq(strategy.lastRecordedTotalAssets(), 1e6);
     }

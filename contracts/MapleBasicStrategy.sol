@@ -48,7 +48,7 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
     /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
-    function fundStrategy(uint256 assetsIn_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
+    function fundStrategy(uint256 assetsIn_, uint256 minSharesOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager onlyActive {
         address strategyVault_ = strategyVault;
 
         require(IGlobalsLike(globals()).isInstanceOf("STRATEGY_VAULT", strategyVault_), "MBS:FS:INVALID_VAULT");
@@ -58,6 +58,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         IPoolManagerLike(poolManager).requestFunds(address(this), assetsIn_);
 
         uint256 shares_ = IERC4626Like(strategyVault_).deposit(assetsIn_, address(this));
+
+        require(shares_ >= minSharesOut_, "MBS:FS:MIN_SHARES");
 
         lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);
 
