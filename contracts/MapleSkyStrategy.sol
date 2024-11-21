@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.25;
 
+import { ERC20Helper } from "../modules/erc20-helper/src/ERC20Helper.sol";
+
 import { StrategyState }     from "./interfaces/IMapleStrategy.sol";
 import { IMapleSkyStrategy } from "./interfaces/skyStrategy/IMapleSkyStrategy.sol";
 
@@ -131,7 +133,9 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function setPsm(address psm_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
-        require(IGlobalsLike(globals()).isInstanceOf("PSM", psm_), "MSS:SPSM:INVALID_PSM");
+        require(IGlobalsLike(globals()).isInstanceOf("PSM", psm_),        "MSS:SPSM:INVALID_PSM");
+        require(ERC20Helper.approve(fundsAsset, psm_, type(uint256).max), "MSS:SPSM:GEM_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds,       psm_, type(uint256).max), "MSS:SPSM:USDS_APPROVE_FAIL");
 
         emit PsmSet(psm = psm_);
     }

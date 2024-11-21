@@ -1410,6 +1410,9 @@ contract MapleSkyStrategySetPsmTests is SkyStrategyTestBase {
         strategy.setPsm(newPsm);
 
         assertEq(strategy.psm(), newPsm);
+
+        assertEq(asset.allowance(address(strategy), newPsm), type(uint256).max);
+        assertEq(usds.allowance(address(strategy),  newPsm), type(uint256).max);
     }
 
 }
