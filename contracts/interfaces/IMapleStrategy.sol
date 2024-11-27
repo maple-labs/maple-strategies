@@ -120,6 +120,12 @@ interface IMapleStrategy {
     function assetsUnderManagement() external view returns (uint256 assetsUnderManagement);
 
     /**
+     *  @dev    Returns the type of the strategy.
+     *  @return strategyType Type of the strategy.
+     */
+    function STRATEGY_TYPE() external view returns (string memory strategyType);
+
+    /**
      *  @dev    Returns the current amount of unrealized losses.
      *  @return unrealizedLosses Amount of assets marked as unrealized losses.
      */

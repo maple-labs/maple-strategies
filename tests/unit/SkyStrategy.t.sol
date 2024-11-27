@@ -79,6 +79,10 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
         assertEq(uint256(strategy.strategyState()), uint256(StrategyState.Active));
     }
 
+    function test_strategyType() external view {
+        assertEq(strategy.STRATEGY_TYPE(), "SKY");
+    }
+
     function test_assetsUnderManagement_strategyNotFunded() external view {
         assertEq(strategy.assetsUnderManagement(), 0);
     }

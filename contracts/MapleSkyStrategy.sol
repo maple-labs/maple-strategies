@@ -45,6 +45,8 @@ import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAbstractStrategy {
 
+    string public constant override STRATEGY_TYPE = "SKY";
+
     uint256 internal constant WAD = 1e18;
 
     uint256 public constant HUNDRED_PERCENT = 1e6;  // 100.0000%

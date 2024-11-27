@@ -77,6 +77,10 @@ contract MapleBasicStrategyViewFunctionTests is BasicStrategyTestBase {
         assertEq(strategy.strategyVault(), address(vault));
     }
 
+    function test_strategyType() external view {
+        assertEq(strategy.STRATEGY_TYPE(), "BASIC");
+    }
+
     function test_assetsUnderManagement_strategyNotFunded() external view {
         assertEq(basicStrategy.assetsUnderManagement(), 0);
     }

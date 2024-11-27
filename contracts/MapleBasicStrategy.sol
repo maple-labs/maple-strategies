@@ -42,6 +42,8 @@ import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, MapleAbstractStrategy {
 
+    string public constant override STRATEGY_TYPE = "BASIC";
+
     uint256 public constant HUNDRED_PERCENT = 1e6;  // 100.0000%
 
     /**************************************************************************************************************************************/

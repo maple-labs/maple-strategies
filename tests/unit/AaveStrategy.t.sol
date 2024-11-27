@@ -74,6 +74,10 @@ contract MapleAaveStrategyViewFunctionTests is AaveStrategyTestBase {
         assertEq(strategy.treasury(), address(treasury));
     }
 
+    function test_strategyType() external view {
+        assertEq(strategy.STRATEGY_TYPE(), "AAVE");
+    }
+
 }
 
 contract MapleAaveStrategyAssetsUnderManagementTests is AaveStrategyTestBase {

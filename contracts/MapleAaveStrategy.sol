@@ -41,6 +41,8 @@ import { MapleAbstractStrategy } from "./MapleAbstractStrategy.sol";
 
 contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAaveStrategyStorage {
 
+    string public constant override STRATEGY_TYPE = "AAVE";
+
     uint256 public constant HUNDRED_PERCENT = 1e6;
 
     /**************************************************************************************************************************************/
