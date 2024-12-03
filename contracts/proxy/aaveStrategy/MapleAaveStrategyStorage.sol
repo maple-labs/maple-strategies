@@ -6,6 +6,10 @@ import { IMapleAaveStrategyStorage } from "../../interfaces/aaveStrategy/IMapleA
 
 contract MapleAaveStrategyStorage is IMapleAaveStrategyStorage {
 
+    /**************************************************************************************************************************************/
+    /*** State Variables                                                                                                                ***/
+    /**************************************************************************************************************************************/
+
     // Used for reentrancy checks.
     uint256 public locked;
 
