@@ -258,9 +258,10 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     function _usdsForGem(address psm_, uint256 gemAmount_) internal view returns (uint256 usdsAmount_) {
         uint256 tout_                 = IPSMLike(psm_).tout();
         uint256 to18ConversionFactor_ = IPSMLike(psm_).to18ConversionFactor();
+        uint256 gemAmt18_             = gemAmount_ * to18ConversionFactor_;
 
         // Inverse of `_gemForUsds(psm_, usdsAmount_)`
-        usdsAmount_ = (gemAmount_  * to18ConversionFactor_ * (WAD + tout_)) / WAD;
+        usdsAmount_ = gemAmt18_ + gemAmt18_ * tout_ / WAD;
     }
 
     /**************************************************************************************************************************************/
