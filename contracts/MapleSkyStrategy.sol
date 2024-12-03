@@ -228,8 +228,8 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
     }
 
-    function _currentTotalAssets(address savingsUsds_) internal view returns (uint256) {
-        return _gemForUsds(IERC4626Like(savingsUsds_).maxWithdraw(address(this)));
+    function _currentTotalAssets(address savingsUsds_) internal view returns (uint256 currentTotalAssets_) {
+        currentTotalAssets_ = _gemForUsds(IERC4626Like(savingsUsds_).previewRedeem(IERC20Like(savingsUsds_).balanceOf(address(this))));
     }
 
     function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {

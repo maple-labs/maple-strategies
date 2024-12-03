@@ -108,7 +108,7 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e18))
         );
 
         assertEq(strategyHarness.assetsUnderManagement(), 1e6);
@@ -133,7 +133,7 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e18))
         );
 
         assertEq(strategyHarness.assetsUnderManagement(), _gemForUsds(1e18));
@@ -163,7 +163,7 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e18))
         );
 
         assertEq(strategyHarness.assetsUnderManagement(), 1e6);
@@ -191,7 +191,7 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e18))
         );
 
         assertEq(strategyHarness.assetsUnderManagement(), _gemForUsds(1e18));
@@ -223,7 +223,7 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (5e18))
         );
 
         assertEq(strategyHarness.assetsUnderManagement(), 5e6 - strategyFee);
@@ -253,7 +253,7 @@ contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (5e18))
         );
 
         assertEq(strategyHarness.assetsUnderManagement(), _gemForUsds(5e18) - strategyFee);
@@ -717,7 +717,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (0))
         );
 
         strategyHarness.__accrueFees();
@@ -734,7 +734,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (0))
         );
 
         strategyHarness.__accrueFees();
@@ -755,7 +755,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e18))
         );
 
         strategyHarness.__accrueFees();
@@ -776,7 +776,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (1e18 + 100))
         );
 
         strategyHarness.__accrueFees();
@@ -834,7 +834,7 @@ contract MapleSkyStrategyAccrueFeesTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (3e18))
         );
 
         vm.expectCall(
@@ -1010,7 +1010,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (3e18))
         );
 
         vm.expectCall(
@@ -1062,7 +1062,7 @@ contract MapleSkyStrategySetStrategyFeeRateTests is SkyStrategyTestBase {
 
         vm.expectCall(
             address(vault),
-            abi.encodeCall(IERC4626Like.maxWithdraw, (address(strategyHarness)))
+            abi.encodeCall(IERC4626Like.previewRedeem, (3e18))
         );
 
         vm.expectCall(
