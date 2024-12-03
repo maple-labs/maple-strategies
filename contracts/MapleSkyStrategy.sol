@@ -134,12 +134,17 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         emit StrategyReactivated(updateAccounting_);
     }
 
-    function setPsm(address psm_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
-        require(IGlobalsLike(globals()).isInstanceOf("PSM", psm_),        "MSS:SPSM:INVALID_PSM");
-        require(ERC20Helper.approve(fundsAsset, psm_, type(uint256).max), "MSS:SPSM:GEM_APPROVE_FAIL");
-        require(ERC20Helper.approve(usds,       psm_, type(uint256).max), "MSS:SPSM:USDS_APPROVE_FAIL");
+    function setPsm(address newPsm_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
+        address oldPsm_ = psm;
 
-        emit PsmSet(psm = psm_);
+        require(IGlobalsLike(globals()).isInstanceOf("PSM", newPsm_), "MSS:SPSM:INVALID_PSM");
+
+        require(ERC20Helper.approve(fundsAsset, oldPsm_, 0),                 "MSS:SPSM:GEM_APPROVE_FAIL");
+        require(ERC20Helper.approve(fundsAsset, newPsm_, type(uint256).max), "MSS:SPSM:GEM_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds,       oldPsm_, 0),                 "MSS:SPSM:USDS_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds,       newPsm_, type(uint256).max), "MSS:SPSM:USDS_APPROVE_FAIL");
+
+        emit PsmSet(psm = newPsm_);
     }
 
     function setStrategyFeeRate(uint256 strategyFeeRate_)
