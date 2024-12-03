@@ -42,7 +42,7 @@ contract MapleSkyStrategyHarness is MapleSkyStrategy {
     }
 
     function __currentTotalAssets() external view returns (uint256) {
-        return _currentTotalAssets(savingsUsds);
+        return _currentTotalAssets(psm, savingsUsds);
     }
 
     function __setLastRecordedTotalAssets(uint256 lastRecordedTotalAssets_) external {

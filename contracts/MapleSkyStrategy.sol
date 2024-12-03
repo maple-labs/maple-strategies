@@ -72,7 +72,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
 
         uint256 shares_ = IERC4626Like(savingsUsds_).deposit(usdsOut_, address(this));
 
-        lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
+        lastRecordedTotalAssets = _currentTotalAssets(psm_, savingsUsds_);
 
         emit StrategyFunded(assetsIn_, shares_);
     }
@@ -94,7 +94,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         uint256 shares_ = _withdraw(psm_, savingsUsds_, assetsOut_, pool);
 
         if (isStrategyActive_) {
-            lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
+            lastRecordedTotalAssets = _currentTotalAssets(psm_, savingsUsds_);
         }
 
         emit StrategyWithdrawal(assetsOut_, shares_);
@@ -126,7 +126,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         // Updating the fee accounting will result in no fees being charged for the period of impairment and/or inactivity.
         // Otherwise, fees will be charged retroactively as if no impairment and/or deactivation occurred.
         if (updateAccounting_) {
-            lastRecordedTotalAssets = _currentTotalAssets(savingsUsds);
+            lastRecordedTotalAssets = _currentTotalAssets(psm, savingsUsds);
         }
 
         strategyState = StrategyState.Active;
@@ -152,12 +152,13 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     {
         require(strategyFeeRate_ <= HUNDRED_PERCENT, "MSS:SSFR:INVALID_FEE_RATE");
 
+        address psm_         = psm;
         address savingsUsds_ = savingsUsds;
 
         // Account for any fees before changing the fee rate
-        _accrueFees(psm, savingsUsds_);
+        _accrueFees(psm_, savingsUsds_);
 
-        lastRecordedTotalAssets = _currentTotalAssets(savingsUsds_);
+        lastRecordedTotalAssets = _currentTotalAssets(psm_, savingsUsds_);
         strategyFeeRate         = strategyFeeRate_;
 
         emit StrategyFeeRateSet(strategyFeeRate_);
@@ -173,7 +174,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
             return 0;
         }
 
-        uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds);
+        uint256 currentTotalAssets_ = _currentTotalAssets(psm, savingsUsds);
 
         assetsUnderManagement_ = currentTotalAssets_ - _currentAccruedFees(currentTotalAssets_);
     }
@@ -189,7 +190,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     /**************************************************************************************************************************************/
 
     function _accrueFees(address psm_, address savingsUsds_) internal {
-        uint256 currentTotalAssets_ = _currentTotalAssets(savingsUsds_);
+        uint256 currentTotalAssets_ = _currentTotalAssets(psm_, savingsUsds_);
         uint256 strategyFee_        = _currentAccruedFees(currentTotalAssets_);
 
         // Withdraw the fees from the strategy vault.
@@ -205,7 +206,7 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function _withdraw(address psm_, address savingsUsds_, uint256 assets_, address destination_) internal returns (uint256 shares_) {
-        uint256 requiredUsds_ = _usdsForGem(assets_);
+        uint256 requiredUsds_ = _usdsForGem(psm_, assets_);
 
         shares_ = IERC4626Like(savingsUsds_).withdraw(requiredUsds_, address(this), address(this));
 
@@ -233,16 +234,17 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         currentAccruedFees_ = yieldAccrued_ * strategyFeeRate_ / HUNDRED_PERCENT;
     }
 
-    function _currentTotalAssets(address savingsUsds_) internal view returns (uint256 currentTotalAssets_) {
-        currentTotalAssets_ = _gemForUsds(IERC4626Like(savingsUsds_).previewRedeem(IERC20Like(savingsUsds_).balanceOf(address(this))));
+    function _currentTotalAssets(address psm_, address savingsUsds_) internal view returns (uint256 currentTotalAssets_) {
+        currentTotalAssets_ =
+            _gemForUsds(psm_, IERC4626Like(savingsUsds_).previewRedeem(IERC20Like(savingsUsds_).balanceOf(address(this))));
     }
 
-    function _gemForUsds(uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
-        uint256 tout                 = IPSMLike(psm).tout();
-        uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
+    function _gemForUsds(address psm_, uint256 usdsAmount_) internal view returns (uint256 gemAmount_) {
+        uint256 tout_                 = IPSMLike(psm_).tout();
+        uint256 to18ConversionFactor_ = IPSMLike(psm_).to18ConversionFactor();
 
-        // Inverse of `_usdsForGem(gemAmount_)`
-        gemAmount_ = (usdsAmount_ * WAD) / (to18ConversionFactor * (WAD + tout));
+        // Inverse of `_usdsForGem(psm_, gemAmount_)`
+        gemAmount_ = (usdsAmount_ * WAD) / (to18ConversionFactor_ * (WAD + tout_));
     }
 
     function _locked() internal view override returns (uint256) {
@@ -253,12 +255,12 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
         return strategyState;
     }
 
-    function _usdsForGem(uint256 gemAmount_) internal view returns (uint256 usdsAmount_) {
-        uint256 tout                 = IPSMLike(psm).tout();
-        uint256 to18ConversionFactor = IPSMLike(psm).to18ConversionFactor();
+    function _usdsForGem(address psm_, uint256 gemAmount_) internal view returns (uint256 usdsAmount_) {
+        uint256 tout_                 = IPSMLike(psm_).tout();
+        uint256 to18ConversionFactor_ = IPSMLike(psm_).to18ConversionFactor();
 
-        // Inverse of `_gemForUsds(usdsAmount_)`
-        usdsAmount_ = (gemAmount_  * to18ConversionFactor * (WAD + tout)) / WAD;
+        // Inverse of `_gemForUsds(psm_, usdsAmount_)`
+        usdsAmount_ = (gemAmount_  * to18ConversionFactor_ * (WAD + tout_)) / WAD;
     }
 
     /**************************************************************************************************************************************/
