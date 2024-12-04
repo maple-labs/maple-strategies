@@ -8,6 +8,7 @@ import { StrategyState }  from "../../contracts/interfaces/aaveStrategy/IMapleAa
 
 import {
     IAavePoolLike,
+    IAaveRewardsControllerLike,
     IAaveTokenLike,
     IERC20Like,
     IGlobalsLike,
@@ -1039,6 +1040,65 @@ contract MapleAaveStrategyReactivateStrategyTests is AaveStrategyTestBase {
 
         assertEq(strategy.lastRecordedTotalAssets(), currentVaultBalance);
         assertEq(uint256(strategy.strategyState()),  uint256(StrategyState.Active));
+    }
+
+}
+
+contract ClaimRewardsTests is AaveStrategyTestBase {
+
+    address rewardToken = makeAddr("rewardToken");
+
+    uint256 rewardAmount = 1e18;
+
+    address[] assets;
+
+    function setUp() public override {
+        super.setUp();
+
+        assets.push(address(aaveToken));
+
+        aaveRewardsController.__setRewardAmount(rewardAmount);
+    }
+
+    function test_claimRewards_failReentrancy() external {
+        strategy.__setLocked(2);
+
+        vm.expectRevert("MS:LOCKED");
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
+    }
+
+    function test_claimRewards_failWhenPaused() external {
+        globals.__setFunctionPaused(true);
+
+        vm.expectRevert("MS:PAUSED");
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
+    }
+
+    function test_claimRewards_failIfNotProtocolAdmin() external {
+        vm.expectRevert("MS:NOT_ADMIN");
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
+
+        vm.prank(poolDelegate);
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
+
+        vm.prank(governor);
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
+
+        vm.prank(operationalAdmin);
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
+    }
+
+    function test_claimRewards_success() external {
+        vm.expectEmit();
+        emit RewardsClaimed(rewardToken, rewardAmount);
+
+        vm.expectCall(
+            address(aaveRewardsController),
+            abi.encodeCall(IAaveRewardsControllerLike.claimRewards, (assets, rewardAmount, treasury, rewardToken))
+        );
+
+        vm.prank(governor);
+        strategy.claimRewards(assets, rewardAmount, rewardToken);
     }
 
 }

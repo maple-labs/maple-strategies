@@ -20,6 +20,7 @@ import { MapleAaveStrategyHarness } from "./Harnesses.sol";
 import {
     MockAavePool,
     MockAaveToken,
+    MockAaveRewardsController,
     MockFactory,
     MockGlobals,
     MockPool,
@@ -183,6 +184,7 @@ contract SkyStrategyTestBase is TestBase {
 
 contract AaveStrategyTestBase is TestBase {
 
+    event RewardsClaimed(address indexed rewardToken, uint256 amount);
     event StrategyDeactivated();
     event StrategyFeesCollected(uint256 fee);
     event StrategyFeeRateSet(uint256 feeRate);
@@ -191,8 +193,9 @@ contract AaveStrategyTestBase is TestBase {
     event StrategyReactivated(bool updateAccounting);
     event StrategyWithdrawal(uint256 assetsOut);
 
-    MockAavePool   aavePool;
-    MockAaveToken  aaveToken;
+    MockAavePool                 aavePool;
+    MockAaveRewardsController    aaveRewardsController;
+    MockAaveToken                aaveToken;
 
     MapleAaveStrategyHarness strategy;
 
@@ -202,8 +205,9 @@ contract AaveStrategyTestBase is TestBase {
         implementation = address(new MapleAaveStrategyHarness());
         initializer    = address(new MapleAaveStrategyInitializer());
 
-        aavePool  = new MockAavePool();
-        aaveToken = new MockAaveToken(address(aavePool), address(asset));
+        aaveRewardsController = new MockAaveRewardsController();
+        aavePool              = new MockAavePool();
+        aaveToken             = new MockAaveToken(address(aavePool), address(asset), address(aaveRewardsController));
 
         vm.startPrank(governor);
         factory.registerImplementation(1, implementation, initializer);

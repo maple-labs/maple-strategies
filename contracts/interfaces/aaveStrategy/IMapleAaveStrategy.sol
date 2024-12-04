@@ -8,6 +8,17 @@ import { IMapleAaveStrategyStorage } from "./IMapleAaveStrategyStorage.sol";
 interface IMapleAaveStrategy is IMapleStrategy, IMapleAaveStrategyStorage {
 
     /**************************************************************************************************************************************/
+    /*** Events                                                                                                                         ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev   Emitted when rewards are claimed from the Aave Rewards Controller.
+     *  @param rewardToken The address of the reward token.
+     *  @param amount      The amount of rewardToken claimed.
+     */
+    event RewardsClaimed(address indexed rewardToken, uint256 amount);
+
+    /**************************************************************************************************************************************/
     /*** Strategy Manager Functions                                                                                                     ***/
     /**************************************************************************************************************************************/
 
@@ -17,5 +28,17 @@ interface IMapleAaveStrategy is IMapleStrategy, IMapleAaveStrategyStorage {
      *  @param assetsIn Amount of assets to deploy.
      */
     function fundStrategy(uint256 assetsIn) external;
+
+    /**************************************************************************************************************************************/
+    /*** Strategy Admin Functions                                                                                                       ***/
+    /**************************************************************************************************************************************/
+
+    /**
+     *  @dev   Claims rewards from the Aave Incentives Controller.
+     *  @param assets      The list of assets to check eligible distributions before claiming rewards. Pass a/s/vToken addresses
+     *  @param amount      The amount of rewards to claim, expressed in wei. Pass MAX_UINT to claim the entire unclaimed reward balance
+     *  @param rewardToken The address of the reward token (e.g., stkAAVE)
+     */
+    function claimRewards(address[] calldata assets, uint256 amount, address rewardToken) external;
 
 }

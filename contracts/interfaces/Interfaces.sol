@@ -9,9 +9,22 @@ interface IAavePoolLike {
 
 }
 
+interface IAaveRewardsControllerLike {
+
+    function claimRewards(
+        address[] calldata assets,
+        uint256 amount,
+        address to,
+        address rewardToken
+    ) external returns (uint256 rewardAmount);
+
+}
+
 interface IAaveTokenLike {
 
     function balanceOf(address account_) external view returns (uint256 balance_);
+
+    function getIncentivesController() external view returns (address incentivesController);
 
     function POOL() external view returns (address pool);
 

@@ -7,6 +7,7 @@ import { IMapleAaveStrategy } from "./interfaces/aaveStrategy/IMapleAaveStrategy
 import {
     IAavePoolLike,
     IAaveTokenLike,
+    IAaveRewardsControllerLike,
     IGlobalsLike,
     IMapleProxyFactoryLike,
     IPoolManagerLike
@@ -95,6 +96,16 @@ contract MapleAaveStrategy is IMapleAaveStrategy, MapleAbstractStrategy, MapleAa
     /**************************************************************************************************************************************/
     /*** Strategy Admin Functions                                                                                                       ***/
     /**************************************************************************************************************************************/
+
+    function claimRewards(address[] calldata assets_, uint256 amount_, address rewardToken_)
+        external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins
+    {
+        address rewardsController_ = IAaveTokenLike(aaveToken).getIncentivesController();
+
+        uint256 rewardAmount_ = IAaveRewardsControllerLike(rewardsController_).claimRewards(assets_, amount_, treasury(), rewardToken_);
+
+        emit RewardsClaimed(rewardToken_, rewardAmount_);
+    }
 
     function deactivateStrategy() external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
         require(_strategyState() != StrategyState.Inactive, "MAS:DS:ALREADY_INACTIVE");

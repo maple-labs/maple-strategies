@@ -13,13 +13,29 @@ contract MockAavePool {
 
 }
 
-contract MockAaveToken {
+contract MockAaveRewardsController {
 
-    constructor(address aavePool_, address underlyingAsset_) {
-        POOL                     = aavePool_;
-        UNDERLYING_ASSET_ADDRESS = underlyingAsset_;
+    uint256 public rewardAmount;
+
+    function claimRewards(address[] calldata, uint256, address, address) external view returns (uint256) {
+        return rewardAmount;
     }
 
+    function __setRewardAmount(uint256 rewardAmount_) external {
+        rewardAmount = rewardAmount_;
+    }
+
+}
+
+contract MockAaveToken {
+
+    constructor(address aavePool_, address underlyingAsset_, address incentivesController_) {
+        POOL                     = aavePool_;
+        UNDERLYING_ASSET_ADDRESS = underlyingAsset_;
+        incentivesController     = incentivesController_;
+    }
+
+    address public incentivesController;
     address public POOL;
     address public UNDERLYING_ASSET_ADDRESS;
 
@@ -27,6 +43,10 @@ contract MockAaveToken {
 
     function balanceOf(address) external view returns (uint256 balanceOf_) {
         balanceOf_ = currentTotalAssets;
+    }
+
+    function getIncentivesController() external view returns (address incentivesController_) {
+        incentivesController_ = incentivesController;
     }
 
     function __setCurrentTotalAssets(uint256 currentTotalAssets_) external {
