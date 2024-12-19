@@ -12,8 +12,9 @@ import {
     IPSMLike
 } from "../../contracts/interfaces/Interfaces.sol";
 
-import { SkyStrategyTestBase }     from "../utils/TestBase.sol";
+import { MockPSM }                 from "../utils/Mocks.sol";
 import { MapleSkyStrategyHarness } from "../utils/Harnesses.sol";
+import { SkyStrategyTestBase }     from "../utils/TestBase.sol";
 
 contract MapleSkyStrategyViewFunctionTests is SkyStrategyTestBase {
 
@@ -1352,7 +1353,7 @@ contract MapleSkyStrategyReactivateStrategyTests is SkyStrategyTestBase {
 
 contract MapleSkyStrategySetPsmTests is SkyStrategyTestBase {
 
-    address newPsm;
+    MockPSM newPsm;
 
     MapleSkyStrategyHarness strategyHarness;
 
@@ -1363,39 +1364,64 @@ contract MapleSkyStrategySetPsmTests is SkyStrategyTestBase {
 
         strategyHarness = MapleSkyStrategyHarness(address(strategy));
 
-        newPsm = makeAddr("newPsm");
+        newPsm = new MockPSM();
+
+        newPsm.__setGem(strategy.fundsAsset());
+        newPsm.__setUsds(strategy.usds());
     }
 
     function test_setPsm_failReentrancy() external {
         strategyHarness.__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
     }
 
     function test_setPsm_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
     }
 
     function test_setPsm_failIfNotProtocolAdmin() external {
         vm.expectRevert("MS:NOT_ADMIN");
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
 
         vm.prank(poolDelegate);
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
 
-        strategyHarness.__setStrategyState(StrategyState.Inactive);
+        strategyHarness.__setStrategyState(StrategyState.Impaired);
 
         vm.prank(governor);
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
 
         strategyHarness.__setStrategyState(StrategyState.Inactive);
 
         vm.prank(operationalAdmin);
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
+    }
+
+    function test_setPsm_failIfZeroAddress() external {
+        vm.expectRevert("MSS:SPSM:ZERO_ADDRESS");
+        vm.prank(poolDelegate);
+        strategy.setPsm(address(0));
+    }
+
+    function test_setPsm_failIfInvalidGem() external {
+        newPsm.__setGem(address(1));
+
+        vm.expectRevert("MSS:SPSM:INVALID_GEM");
+        vm.prank(poolDelegate);
+        strategy.setPsm(address(newPsm));
+    }
+
+    function test_setPsm_failIfInvalidUsds() external {
+        newPsm.__setUsds(address(1));
+
+        vm.expectRevert("MSS:SPSM:INVALID_USDS");
+        vm.prank(poolDelegate);
+        strategy.setPsm(address(newPsm));
     }
 
     function test_setPsm_failIfNotValidInstance() external {
@@ -1403,20 +1429,20 @@ contract MapleSkyStrategySetPsmTests is SkyStrategyTestBase {
 
         vm.expectRevert("MSS:SPSM:INVALID_PSM");
         vm.prank(poolDelegate);
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
     }
 
     function test_setPsm_success() external {
         vm.expectEmit();
-        emit PsmSet(newPsm);
+        emit PsmSet(address(newPsm));
 
         vm.prank(poolDelegate);
-        strategy.setPsm(newPsm);
+        strategy.setPsm(address(newPsm));
 
-        assertEq(strategy.psm(), newPsm);
+        assertEq(strategy.psm(), address(newPsm));
 
-        assertEq(asset.allowance(address(strategy), newPsm), type(uint256).max);
-        assertEq(usds.allowance(address(strategy),  newPsm), type(uint256).max);
+        assertEq(asset.allowance(address(strategy), address(newPsm)), type(uint256).max);
+        assertEq(usds.allowance(address(strategy),  address(newPsm)), type(uint256).max);
 
         assertEq(asset.allowance(address(strategy), address(psm)), 0);
         assertEq(usds.allowance(address(strategy),  address(psm)), 0);

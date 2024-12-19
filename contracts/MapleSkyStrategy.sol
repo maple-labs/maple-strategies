@@ -135,14 +135,21 @@ contract MapleSkyStrategy is IMapleSkyStrategy, MapleSkyStrategyStorage, MapleAb
     }
 
     function setPsm(address newPsm_) external override nonReentrant whenProtocolNotPaused onlyProtocolAdmins {
-        address oldPsm_ = psm;
+        require(newPsm_ != address(0), "MSS:SPSM:ZERO_ADDRESS");
+
+        address fundsAsset_ = fundsAsset;
+        address oldPsm_     = psm;
+        address usds_       = usds;
+
+        require(IPSMLike(newPsm_).gem() == fundsAsset_, "MSS:SPSM:INVALID_GEM");
+        require(IPSMLike(newPsm_).usds() == usds_,      "MSS:SPSM:INVALID_USDS");
 
         require(IGlobalsLike(globals()).isInstanceOf("PSM", newPsm_), "MSS:SPSM:INVALID_PSM");
 
-        require(ERC20Helper.approve(fundsAsset, oldPsm_, 0),                 "MSS:SPSM:GEM_APPROVE_FAIL");
-        require(ERC20Helper.approve(fundsAsset, newPsm_, type(uint256).max), "MSS:SPSM:GEM_APPROVE_FAIL");
-        require(ERC20Helper.approve(usds,       oldPsm_, 0),                 "MSS:SPSM:USDS_APPROVE_FAIL");
-        require(ERC20Helper.approve(usds,       newPsm_, type(uint256).max), "MSS:SPSM:USDS_APPROVE_FAIL");
+        require(ERC20Helper.approve(fundsAsset_, oldPsm_, 0),                 "MSS:SPSM:GEM_APPROVE_FAIL");
+        require(ERC20Helper.approve(fundsAsset_, newPsm_, type(uint256).max), "MSS:SPSM:GEM_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds_,       oldPsm_, 0),                 "MSS:SPSM:USDS_APPROVE_FAIL");
+        require(ERC20Helper.approve(usds_,       newPsm_, type(uint256).max), "MSS:SPSM:USDS_APPROVE_FAIL");
 
         emit PsmSet(psm = newPsm_);
     }
