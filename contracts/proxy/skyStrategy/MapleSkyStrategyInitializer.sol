@@ -58,7 +58,7 @@ contract MapleSkyStrategyInitializer is IMapleSkyStrategyInitializer, MapleSkySt
         usds        = usds_;
         fundsAsset  = fundsAsset_;
 
-        emit Initialized(pool_, savingsUsds_, psm_, poolManager_, usds_);
+        emit Initialized(pool_, poolManager_, psm_, savingsUsds_, usds_);
     }
 
 }

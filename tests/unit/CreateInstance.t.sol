@@ -94,9 +94,9 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
 
     event Initialized(
         address indexed pool,
-        address indexed savingsUsds,
+        address indexed poolManager,
         address indexed psm,
-        address poolManager,
+        address savingsUsds,
         address usds
     );
 
@@ -195,7 +195,7 @@ contract MapleSkyStrategyCreateInstanceTests is SkyStrategyTestBase {
         bytes memory calldata_ = abi.encode(address(poolManager), address(vault), address(psm));
 
         vm.expectEmit();
-        emit Initialized(address(pool), address(vault), address(psm), address(poolManager), address(usds));
+        emit Initialized(address(pool), address(poolManager), address(psm), address(vault), address(usds));
 
         MapleSkyStrategy strategy_ = MapleSkyStrategy(factory.createInstance(calldata_, "SALT"));
 
