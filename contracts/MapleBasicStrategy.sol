@@ -68,11 +68,12 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         emit StrategyFunded(assetsIn_, shares_);
     }
 
-    function withdrawFromStrategy(uint256 assetsOut_) external override nonReentrant whenProtocolNotPaused onlyStrategyManager {
+    function withdrawFromStrategy(uint256 assetsOut_, uint256 maxSharesBurned_)
+        external override nonReentrant whenProtocolNotPaused onlyStrategyManager
+    {
         require(assetsOut_ > 0, "MBS:WFS:ZERO_ASSETS");
 
         address strategyVault_ = strategyVault;
-
         bool isStrategyActive_ = _strategyState() == StrategyState.Active;
 
         // Strategy only accrues fees when it is active.
@@ -83,6 +84,8 @@ contract MapleBasicStrategy is IMapleBasicStrategy, MapleBasicStrategyStorage, M
         }
 
         uint256 shares_ = IERC4626Like(strategyVault_).withdraw(assetsOut_, address(pool), address(this));
+
+        require(shares_ <= maxSharesBurned_, "MBS:WFS:SLIPPAGE");
 
         if (isStrategyActive_) {
             lastRecordedTotalAssets = _currentTotalAssets(strategyVault_);

@@ -3,8 +3,10 @@ pragma solidity ^0.8.0;
 
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
-import { IMapleStrategy } from "../../contracts/interfaces/IMapleStrategy.sol";
-import { StrategyState }  from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategyStorage.sol";
+import { IMapleStrategy }      from "../../contracts/interfaces/IMapleStrategy.sol";
+import { IMapleBasicStrategy } from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategy.sol";
+
+import { StrategyState } from "../../contracts/interfaces/basicStrategy/IMapleBasicStrategyStorage.sol";
 
 import {
     IERC20Like,
@@ -402,26 +404,26 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         MapleBasicStrategyHarness(address(strategy)).__setLocked(2);
 
         vm.expectRevert("MS:LOCKED");
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
     }
 
     function test_withdrawFromStrategy_failWhenPaused() external {
         globals.__setFunctionPaused(true);
 
         vm.expectRevert("MS:PAUSED");
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
     }
 
     function test_withdrawFromStrategy_failIfNotStrategyManager() external {
         globals.__setIsInstanceOf(false);
 
         vm.expectRevert("MS:NOT_MANAGER");
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
     }
 
     function test_withdrawFromStrategy_failIfZeroAssets() external {
         vm.expectRevert("MBS:WFS:ZERO_ASSETS");
-        strategy.withdrawFromStrategy(0);
+        strategy.withdrawFromStrategy(0, type(uint256).max);
     }
 
     function test_withdrawFromStrategy_failIfLowAssets() external {
@@ -429,7 +431,15 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.prank(strategyManager);
         vm.expectRevert("MBS:WFS:LOW_ASSETS");
-        strategy.withdrawFromStrategy(totalAssets + 1);
+        strategy.withdrawFromStrategy(totalAssets + 1, type(uint256).max);
+    }
+
+    function test_withdrawFromStrategy_failIfSlippage() external {
+        vault.__setBalanceOf(address(strategy), totalAssets);
+
+        vm.prank(strategyManager);
+        vm.expectRevert("MBS:WFS:SLIPPAGE");
+        strategy.withdrawFromStrategy(totalAssets, 0);
     }
 
     function test_withdrawFromStrategy_successWithPoolDelegate() external {
@@ -438,7 +448,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -457,7 +467,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         );
 
         vm.prank(poolDelegate);
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
 
         assertEq(strategy.lastRecordedTotalAssets(), basicStrategy.__currentTotalAssets());
     }
@@ -468,7 +478,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -487,7 +497,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         );
 
         vm.prank(strategyManager);
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
 
         assertEq(strategy.lastRecordedTotalAssets(), basicStrategy.__currentTotalAssets());
     }
@@ -500,7 +510,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -514,7 +524,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         );
 
         vm.prank(strategyManager);
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
 
         assertEq(strategy.lastRecordedTotalAssets(), totalAssets);
     }
@@ -527,7 +537,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleBasicStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -541,7 +551,7 @@ contract MapleBasicStrategyWithdrawFromStrategyTests is BasicStrategyTestBase {
         );
 
         vm.prank(strategyManager);
-        strategy.withdrawFromStrategy(assetsOut);
+        strategy.withdrawFromStrategy(assetsOut, type(uint256).max);
 
         assertEq(strategy.lastRecordedTotalAssets(), totalAssets);
     }

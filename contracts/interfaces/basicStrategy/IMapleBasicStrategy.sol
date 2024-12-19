@@ -19,4 +19,12 @@ interface IMapleBasicStrategy is IMapleStrategy, IMapleBasicStrategyStorage {
      */
     function fundStrategy(uint256 assetsIn, uint256 minSharesOut) external;
 
+    /**
+     *  @dev   Withdraw assets from the strategy back into the Maple pool.
+     *         Withdrawals can be attempted even if the strategy is impaired or inactive.
+     *  @param assetsOut       Amount of assets to withdraw.
+     *  @param maxSharesBurned Maximum amount of shares to redeem.
+     */
+    function withdrawFromStrategy(uint256 assetsOut, uint256 maxSharesBurned) external;
+
 }

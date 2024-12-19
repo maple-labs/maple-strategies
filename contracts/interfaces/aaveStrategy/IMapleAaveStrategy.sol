@@ -29,6 +29,13 @@ interface IMapleAaveStrategy is IMapleStrategy, IMapleAaveStrategyStorage {
      */
     function fundStrategy(uint256 assetsIn) external;
 
+    /**
+     *  @dev   Withdraw assets from the strategy back into the Maple pool.
+     *         Withdrawals can be attempted even if the strategy is impaired or inactive.
+     *  @param assetsOut Amount of assets to withdraw.
+     */
+    function withdrawFromStrategy(uint256 assetsOut) external;
+
     /**************************************************************************************************************************************/
     /*** Strategy Admin Functions                                                                                                       ***/
     /**************************************************************************************************************************************/

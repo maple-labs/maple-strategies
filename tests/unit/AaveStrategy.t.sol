@@ -3,8 +3,10 @@ pragma solidity ^0.8.0;
 
 import { console2 as console, Vm } from "../../modules/forge-std/src/Test.sol";
 
-import { IMapleStrategy } from "../../contracts/interfaces/IMapleStrategy.sol";
-import { StrategyState }  from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
+import { IMapleStrategy }     from "../../contracts/interfaces/IMapleStrategy.sol";
+import { IMapleAaveStrategy } from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategy.sol";
+
+import { StrategyState } from "../../contracts/interfaces/aaveStrategy/IMapleAaveStrategyStorage.sol";
 
 import {
     IAavePoolLike,
@@ -360,7 +362,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
             vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -385,7 +387,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
             vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -412,7 +414,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
@@ -434,7 +436,7 @@ contract MapleAaveStrategyWithdrawFromStrategyTests is AaveStrategyTestBase {
 
         vm.expectCall(
             address(globals),
-            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleStrategy.withdrawFromStrategy.selector))
+            abi.encodeCall(IGlobalsLike.isFunctionPaused, (IMapleAaveStrategy.withdrawFromStrategy.selector))
         );
 
         vm.expectCall(
